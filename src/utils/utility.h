@@ -13,6 +13,7 @@
 #include <span>
 #include <vector>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <iomanip>
 
