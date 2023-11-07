@@ -39,6 +39,7 @@ The command-line options are as follows:
 - `-q`: Quantization mode (e.g., int8)
 - `-n`: Number of tokens to generate (e.g., 200)
 - `-i`: Input text (e.g., 'That was a long long story happened in the ancient China.')
+- `-h`: show usage information
 
 ## Performance
 
