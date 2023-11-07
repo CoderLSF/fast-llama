@@ -1,6 +1,6 @@
 # RapidLLaMA: A High-Performance LLM Inference Engine
 
-RapidLLaMA is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
+RapidLLaMA is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++ which can run a 8-bit quantized llama-7B model on a cpu with 56 cores in a speed of `~30 tokens / s`. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
 
 ## Compilation
 
