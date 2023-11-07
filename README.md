@@ -1,5 +1,5 @@
 # RapidLLaMA
-Runs LLaMA with HIGH speed
+Runs LLaMA with very **`HIGH Speed`** on **`CPU`**
 
 ## Compile
 
