@@ -1,5 +1,5 @@
 # RapidLLaMA
-Runs LLaMA with very **`HIGH Speed`** on **`CPU`**
+Runs LLaMA with very **`HIGH Speed`** on **`CPU`** (3x of `llama.cpp`)
 
 ## Compile
 
