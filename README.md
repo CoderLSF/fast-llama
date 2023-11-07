@@ -1,6 +1,6 @@
 # RapidLLaMA: A High-Performance LLM Inference Engine
 
-RapidLLaMA is a super `HIGH`-performance inference engine for LLMs (**3x** of `llama.cpp`). It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2-3 times better inference speed on a CPU.
+RapidLLaMA is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`). It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2-3 times better inference speed on a CPU.
 
 ## Table of Contents
 - [Compilation](#compilation)
