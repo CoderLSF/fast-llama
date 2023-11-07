@@ -3,21 +3,11 @@
 RapidLLaMA is a high-performance inference engine for large-scale machine learning models (**3x** of `llama.cpp`). It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2-3 times better inference speed on a CPU.
 
 ## Table of Contents
-
-- [Requirements](#requirements)
 - [Compilation](#compilation)
 - [Usage](#usage)
 - [Performance](#performance)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
-
-## Requirements
-
-To build and run RapidLLaMA, the following requirements must be met:
-
-- A modern C++ compiler with C++17 support
-- cmake (version 3.0 or higher)
-- (Optional) OpenMP for parallel processing
 
 ## Compilation
 
