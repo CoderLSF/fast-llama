@@ -63,3 +63,7 @@ RapidLLaMA is licensed under the [Apache 2 License](LICENSE).
 ## Acknowledgements
 
 We would like to express our gratitude to all contributors and users of RapidLLaMA. Your support and feedback have been invaluable in making this project a success. If you encounter any issues or have any suggestions, please feel free to open an issue on the GitHub repository.
+
+## Contact
+Email: `topcoderlsf@gmail.com`
+Contact me if you any questions.
