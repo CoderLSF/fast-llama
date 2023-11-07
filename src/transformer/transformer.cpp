@@ -20,8 +20,6 @@
 
 namespace cpuft {
 
-constexpr size_t QBLOCK_SIZE = 128;
-
 bool ParallelTransformer::load(std::string_view ckpt_path, std::string_view tknr_path, ModelFileType mft, QuantType qt,
         int num_threads, bool use_numa, int max_batch_size, uint64_t rand_seed) {
 
