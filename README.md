@@ -36,7 +36,7 @@ The command-line options are as follows:
 
 ## Performance
 
-RapidLLaMA achieves a generation speed of approximately 25-30 tokens/s for an 8-bit quantized 7B model running on the following CPU configuration:
+rapid-llama achieves a generation speed of approximately 25-30 tokens/s for an 8-bit quantized 7B model running on the following CPU configuration:
 
 ```text
 Architecture:            x86_64
@@ -51,7 +51,7 @@ For more details on the CPU configuration, refer to the [performance section](#p
 
 ## License
 
-RapidLLaMA is licensed under the [Apache 2 License](LICENSE).
+rapid-llama is licensed under the [Apache 2 License](LICENSE).
 
 ## Acknowledgements
 
