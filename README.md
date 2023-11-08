@@ -70,7 +70,7 @@ Why is it so fast?
 - Ultimate memory efficiency
 - Well-designed thread scheduling algorithm
 - Optimized operators
-- Quantization
+- Proper Quantizations
 
 ## License
 
