@@ -36,7 +36,7 @@ make -j 4
 ```
 ### Run
 To run the inference engine, execute the following command:
-
+> Only gguf and llama2.c format of models are currently supported. Independent formort is coming soon.
 ```bash
 ./main -c ./models/cnllama-7b/ggml-model-f32.gguf -f gguf -j 56 -q int8 -n 200 -i 'That was a long long story happened in the ancient China.'
 ```
