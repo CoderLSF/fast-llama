@@ -61,7 +61,7 @@ rapid-llama achieves a generation speed of approximately 25-30 tokens/s for an 8
 ```text
 Architecture:            x86_64
 Model name:              Intel(R) Xeon(R) Platinum 8350C CPU @ 2.60GHz
-CPU(s):                  112
+CPU(s):                  112 (56 physical cores)
 Thread(s) per core:      2
 Core(s) per socket:      28
 Socket(s):               2
