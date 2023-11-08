@@ -68,8 +68,12 @@ For more details on the CPU configuration, refer to the [performance section](#p
 ## Why
 Why is it so fast?
 - Ultimate memory efficiency
+   - Zero memory allocations and frees during inferencing.
+   - Maximization of memory locality.
 - Well-designed thread scheduling algorithm
 - Optimized operators
+   - Fuse all operators that can be fused together
+   - Optmize calculation of several operators
 - Proper Quantizations
 
 ## License
