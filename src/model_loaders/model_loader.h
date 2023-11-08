@@ -1,3 +1,9 @@
+/************************************************************************************************************************
+    Author: Coder LSF(Liu Shaofeng)
+      Date: 2023/11/02
+     Brief: Implements a class for loading models in various format of models like GGUF by llama.cpp and llama2.c
+ ************************************************************************************************************************/
+
 #pragma once
 
 #include "tensor.h"
