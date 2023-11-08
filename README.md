@@ -8,7 +8,7 @@ rapid-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (
 
 **Advantages**
 - **`Fast`**
-   - Extremely fast on CPU. Faster than any other engines on Github including [llama.cpp] (**`3 times`** faster than llama.cpp).
+   - Extremely fast on CPU. Faster than any other engines on Github including [llama.cpp](https://github.com/ggerganov/llama.cpp) (**`3 times`** faster than llama.cpp).
 - **`Simple`**
    - Totally 6k+ lines of C++ codes with well-orgnized code structures and no dependencies except NUMA (if needed for multi-cpus).
 
@@ -82,4 +82,5 @@ We would like to express our gratitude to all contributors and users of RapidLLa
 
 ## Contact
 Email: [📩liushaofeng01@baidu.com](topcoderlsf@gmail.com)
+
 Contact me if you any questions.
