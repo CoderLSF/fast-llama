@@ -157,7 +157,7 @@ bool ParallelTransformer::parallel_global_init(
 
     _tfc = tf.conf;
     if (_tfc.n_heads % _tfc.n_kv_heads != 0) {
-        fprintf(stderr, "Unsupported value of n_heads:%d and n_kv_heads:%d\n", _tfc.n_heads, _tfc.n_kv_heads);
+        ft_log_error("Unsupported value of n_heads:%d and n_kv_heads:%d", _tfc.n_heads, _tfc.n_kv_heads);
         return false;
     }
 
