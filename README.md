@@ -12,7 +12,6 @@ rapid-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (
 - **`Simple`**
    - Totally 6k+ lines of C++ codes with well-orgnized code structures and no dependencies except NUMA (if needed for multi-cpus).
 
-
 ## Quick Start
 
 ### Compile
@@ -22,6 +21,8 @@ Only Linux is supported currently. Support of other platforms including Windows,
 #### Requsitions
 - gcc version 10.x or newer versions
 - libnuma-dev
+
+> libraries like mpi, openblas, mkl, etc are NOT needed currently.
 
 #### Compilation
 Method 1. Using the provided build script:
