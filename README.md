@@ -1,4 +1,4 @@
-# rapid-llama: A High-Performance LLM Inference Engine
+# Rapid-LLaMA: A High-Performance LLM Inference Engine
 
 ![image](https://github.com/CoderLSF/rapid-llama/assets/65639063/fc0e63df-b16f-4f6c-a0c6-9d9a018ad39c)
 
