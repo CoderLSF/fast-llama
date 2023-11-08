@@ -1,4 +1,8 @@
-/* Inference for Llama-2 Transformer model in pure C */
+/************************************************************************************************************************
+    Author: Coder LSF(Liu Shaofeng)
+      Date: 2023/11/02
+     Brief: Supports the loading of llama2.c format of models
+ ************************************************************************************************************************/
 
 #include <stdlib.h>
 #include <stdint.h>
