@@ -65,6 +65,13 @@ Socket(s):               2
 ![image](https://github.com/CoderLSF/RapidLLaMA/assets/65639063/d4477fcb-96fb-4b0a-a1fd-30ca583d0aa2)
 For more details on the CPU configuration, refer to the [performance section](#performance) provided above.
 
+## Why
+Why is it so fast?
+- Ultimate memory efficiency
+- Well-designed thread scheduling algorithm
+- Optimized operators
+- Quantization
+
 ## License
 
 rapid-llama is licensed under the [Apache 2 License](LICENSE).
