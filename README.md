@@ -17,14 +17,19 @@ rapid-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (
 
 ### Compile
 
-You can compile the code using one of the following two methods:
+Only Linux is supported currently. Support of other platforms including Windows, Mac, GPU is coming soon.
 
-1. Using the provided build script:
+#### Requsitions
+- gcc version 10.x or newer versions
+- libnuma-dev
+
+#### Compilation
+Method 1. Using the provided build script:
 ```bash
 bash ./build.sh
 ```
 
-2. Using Make:
+Method 2. Using Make:
 ```bash
 make -j 4
 ```
