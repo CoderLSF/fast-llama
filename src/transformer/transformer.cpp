@@ -205,6 +205,7 @@ bool ParallelTransformer::parallel_thread_init(
         td.w.cls.set_memory_type(MemoryType::NUMA);
     }
 
+    // Split the weights tensor by lines for paralleling computation in threads
     auto split_rows = [this, &tgis](TaskType tt, int num_rows) -> std::tuple<int, int> {
         const ThreadGroupInfo* tgi = nullptr;
         for (auto& item : tgis) {
@@ -230,6 +231,7 @@ bool ParallelTransformer::parallel_thread_init(
         return res;
     };
 
+    // Copy the data of weights to the tensor for this thread
     auto copy_layers = [](Tensor& t, const Tensor &s, int copied, int offset, int rows) -> int {
         if (offset < 0 || offset >= s.rows() || rows < 1) {
             return 0;
