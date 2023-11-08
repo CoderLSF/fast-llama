@@ -2,6 +2,12 @@
 
 rapid-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++ which can run a 8-bit quantized `LLaMA2-7B` model on a cpu with 56 cores in speed of `~30 tokens / s`. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
 
+## Advantages
+- **`Fast`**
+   - Extremely fast on CPU. Faster than any other engines on Github including [llama.cpp] (`THREE` times faster than llama.cpp).
+- **`Simple`**
+   - Totally 6k+ lines of C++ codes with clear code structures and no dependencies except NUMA (if needed for multi-cpus).
+
 ## Compilation
 
 You can compile the code using one of the following two methods:
