@@ -25,27 +25,28 @@ namespace cpuft {
 class ParallelTransformer {
     enum class TaskType;
     struct Task;
-    struct GlobalWeights {
+    struct GlobalWeights { // Weight tensors that are used during inferencing in main thread.
         Tensor  token_embedding_table;  // (vocab_size, dim)
         Tensor  rms_att_weight;         // (layer, dim) rmsnorm weights
         Tensor  rms_ffn_weight;         // (layer, dim)
         Tensor  rms_final_weight;       // (dim,)
         Tensor  rope_freq_cis;
     };
-    struct TransformerRuntime {
+    struct TransformerRuntime { // Global runtime data used during inferencing in main thread.
         std::unique_ptr<int[]> tokens;
         int  num_total_tokens  = 0;
         int  num_prompt_tokens = 0;
 
         AlignedMemory<char, 64> buf;
     };
-    struct ThreadRuntime {
+    struct ThreadRuntime { // Runtime data used during inferencing in each thread of the thread pool.
         Tensor k_cache;
         Tensor v_cache;
 
         AlignedMemory<char, 64> buf;
     };
 
+    // Weight tensors used in threads of the thread pool.
     struct ThreadTransformerWeights {
         Tensor  qkv;
         Tensor  attn_o;
@@ -63,6 +64,7 @@ class ParallelTransformer {
         int kv_heads_offset;
     };
 
+    // Thread local data for each thread of the thread pool.
     struct ThreadData {
         ThreadWeightsConfig      c;
         ThreadTransformerWeights w;
