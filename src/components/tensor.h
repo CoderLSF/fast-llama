@@ -113,6 +113,7 @@ public:
         return reset(columns, 0, 0, qt, quant_group_size);
     }
 
+    // 截取当前tensor的片段生成一个新的tensor，新tensor和当前tensor共享内存
     Tensor slice(int start, int end) const noexcept {
         int layers = 0;
         int rows = 0;
