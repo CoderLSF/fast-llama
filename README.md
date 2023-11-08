@@ -64,7 +64,7 @@ Core(s) per socket:      28
 Socket(s):               2
 ```
 ![image](https://github.com/CoderLSF/RapidLLaMA/assets/65639063/d4477fcb-96fb-4b0a-a1fd-30ca583d0aa2)
-For more details on the CPU configuration, refer to the [performance section](#performance) provided above.
+> Latancy of first token will be optimized laterly.
 
 ## Why
 Why is it so fast?
