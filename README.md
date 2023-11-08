@@ -21,7 +21,7 @@ Why use Rapid-LLaMA?
 
 Only Linux is supported currently. Support of other platforms including Windows, Mac, GPU is coming soon.
 
-#### Requsitions
+#### Requisitions
 - gcc version 10.x or newer versions
 - libnuma-dev
 
