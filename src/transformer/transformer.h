@@ -49,7 +49,6 @@ class ParallelTransformer {
     struct ThreadTransformerWeights {
         Tensor  qkv;
         Tensor  attn_o;
-        Tensor  ffn_13;
         Tensor  ffn_1;
         Tensor  ffn_2;
         Tensor  ffn_3;
