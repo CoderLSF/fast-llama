@@ -113,6 +113,13 @@ public:
         return reset(columns, 0, 0, qt, quant_group_size);
     }
 
+    // @brief: Change the shape while keeping the total size unchanged
+    // @param columns: new value of columns
+    // @param rows:    new value of columns. -1 for automatically calculation.
+    // @param layers:  new value of layers. -1 for automatically calculation
+    // @return: the tensor of itself
+    Tensor& reshape(int columns, int rows=-1, int layers=-1);
+
     // 截取当前tensor的片段生成一个新的tensor，新tensor和当前tensor共享内存
     Tensor slice(int start, int end) const noexcept {
         int layers = 0;
@@ -319,7 +326,6 @@ public:
     TensorShape shape() const noexcept {
         return {_columns, _rows, _layers};
     }
-    Tensor& reshape(int columns, int rows=-1, int layers=-1);
 
     int columns()    const noexcept { return _columns; }
     int rows()       const noexcept { return _rows; }
