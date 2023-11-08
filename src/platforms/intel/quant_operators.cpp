@@ -704,7 +704,6 @@ void fill_random(QuantType qt,
     } else if (qt == QuantType::INT4) {
         fill_random(reinterpret_cast<Bit4Pair*>(qx), qs, n, gs, min_value, max_value);
     }
-
 }
 
 template <typename T>
