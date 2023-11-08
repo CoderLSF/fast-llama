@@ -1,3 +1,4 @@
+// The codes in this file mainly come from llama2.c which is a great program for learning LLM inferencing.
 
 #include "sampler.h"
 
