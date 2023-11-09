@@ -29,15 +29,14 @@ namespace cpuft::quant {
 template <typename T>
 inline void quantize(T* qx, float* qs, const float* x, size_t n, int gs) noexcept {
     constexpr float QF = (std::is_same<T, Bit4Pair>::value) ? QUANT4_FACTOR : (sizeof(T) == 1 ? QUANT8_FACTOR : QUANT16_FACTOR);
-    constexpr float F = QF - 0.5/QF;
+    constexpr float  F = QF - 0.5/QF;
     for (size_t i = 0, e = (n+gs-1)/gs; i < e; ++i, x += gs, qx += gs) {
         auto gn = std::min(size_t(n - gs*i), size_t(gs));
         float r = array_max_abs(x, gn) / F;
         qs[i] = r;
         if constexpr (std::is_same<T, Bit4Pair>::value) {
             for (size_t j = 0; j < gn; j += 2) {
-                qx[j/2].a = int8_t(x[j]   / r);
-                qx[j/2].b = int8_t(x[j+1] / r);
+                qx[j/2].v = (uint8_t(x[j] / r) & 15) | (uint8_t(x[j+1] / r) << 4);
             }
         } else {
             for (size_t j = 0; j < gn; ++j) {
@@ -52,8 +51,15 @@ inline void dequantize_(float* out, const T* qx, const float* qs, size_t n, int 
     for (size_t i = 0; i < n; i += gs) {
         float r = qs[i/gs];
         auto gn = std::min(size_t(n), size_t(i+gs));
-        for (size_t j = i; j < gn; ++j) {
-            out[j]   = qx[j] * r;
+        if constexpr (std::is_same<T, Bit4Pair>::value) {
+            for (size_t j = i; j < gn; j += 2) {
+                out[j]   = qx[j/2].a * r;
+                out[j+1] = qx[j/2].b * r;
+            }
+        } else {
+            for (size_t j = i; j < gn; ++j) {
+                out[j]   = qx[j] * r;
+            }
         }
     }
 }
