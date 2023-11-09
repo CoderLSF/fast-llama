@@ -22,9 +22,12 @@ enum class QuantType {
 
     _MAX_,
 };
-struct Bit4Pair {
-    uint8_t a:4;
-    uint8_t b:4;
+union Bit4Pair {
+    struct {
+        int8_t a:4;
+        int8_t b:4;
+    };
+    uint8_t v;
 };
 constexpr int QUANT16_FACTOR = 5792;
 constexpr int QUANT8_FACTOR  = 127;
