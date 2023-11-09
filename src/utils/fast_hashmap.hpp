@@ -183,13 +183,8 @@ class FastHashMap {
     };
 
     struct Bucket {
-        union {
-            struct {
-                uint8_t   hash_heads[7];
-                uint8_t   kv_num = 0;
-            };
-            uint64_t hhu64;
-        };
+        uint8_t   hash_heads[7];
+        uint8_t   kv_num = 0;
 
         union {
             char __kvd[48];
