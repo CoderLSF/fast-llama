@@ -1,13 +1,13 @@
-# Rapid-LLaMA: A High-Performance Inference Engine
+# Fast-LLaMA: A High-Performance Inference Engine
 
 ![image](https://github.com/CoderLSF/rapid-llama/assets/65639063/fc0e63df-b16f-4f6c-a0c6-9d9a018ad39c)
 
 
 ## Descriptions
-rapid-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++ which can run a **`8-bit`** quantized **`LLaMA2-7B`** model on a cpu with 56 cores in speed of **`~30 tokens / s`**. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
+fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++ which can run a **`8-bit`** quantized **`LLaMA2-7B`** model on a cpu with 56 cores in speed of **`~30 tokens / s`**. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
 
 ## **Advantages**
-Why use Rapid-LLaMA?
+Why use Fast-LLaMA?
 - **`Fast`**
    - Extremely fast on CPU. `Faster` than any other engines on Github including [llama.cpp](https://github.com/ggerganov/llama.cpp) (**`3 times`** faster than llama.cpp).
 - **`Simple`**
@@ -56,7 +56,7 @@ The command-line options are as follows:
 
 ## Performance
 
-rapid-llama achieves a generation speed of approximately 25-30 tokens/s for an 8-bit quantized 7B model running on the following CPU configuration:
+fast-llama achieves a generation speed of approximately 25-30 tokens/s for an 8-bit quantized 7B model running on the following CPU configuration:
 
 ```text
 Architecture:            x86_64
@@ -82,11 +82,11 @@ Why is it so fast?
 
 ## License
 
-rapid-llama is licensed under the [Apache 2 License](LICENSE).
+fast-llama is licensed under the [Apache 2 License](LICENSE).
 
 ## Acknowledgements
 
-We would like to express our gratitude to all contributors and users of RapidLLaMA. Your support and feedback have been invaluable in making this project a success. If you encounter any issues or have any suggestions, please feel free to open an issue on the GitHub repository.
+We would like to express our gratitude to all contributors and users of FastLLaMA. Your support and feedback have been invaluable in making this project a success. If you encounter any issues or have any suggestions, please feel free to open an issue on the GitHub repository.
 
 ## Contact
 Email: [📩topcoderlsf@gmail.com](topcoderlsf@gmail.com)
