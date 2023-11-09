@@ -11,7 +11,7 @@ Why use Rapid-LLaMA?
 - **`Fast`**
    - Extremely fast on CPU. `Faster` than any other engines on Github including [llama.cpp](https://github.com/ggerganov/llama.cpp) (**`3 times`** faster than llama.cpp).
 - **`Simple`**
-   - Totally 6k+ lines of C++ codes with well-orgnized code structures and no dependencies except NUMA (if needed for multi-cpus).
+   - Totally less than 7k lines of C++ codes with well-orgnized code structures and no dependencies except NUMA (if needed for multi-cpus).
 
 > ⚠️ Only **`CPU`** is supported currently. Support for GPU is coming soon.
 
