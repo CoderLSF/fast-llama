@@ -1,3 +1,9 @@
+/********************************************************************************************************
+        Author: Coder LSF (Liu Shaofeng)
+          Date: 2023/11/09
+         Brief: Implements a class template of hashmap with high performance
+ ********************************************************************************************************/
+
 #pragma once
 
 #include <stdint.h>
@@ -177,8 +183,13 @@ class FastHashMap {
     };
 
     struct Bucket {
-        uint8_t   kv_num = 0;
-        uint8_t   hash_heads[7];
+        union {
+            struct {
+                uint8_t   hash_heads[7];
+                uint8_t   kv_num = 0;
+            };
+            uint64_t hhu64;
+        };
 
         union {
             char __kvd[48];
@@ -202,13 +213,10 @@ public:
     bool build(const auto& data) noexcept {
         _hash_size = (data.size() + EXPECT_LOAD_FACTOR - 1) / EXPECT_LOAD_FACTOR;
         _hash_bkts.reset(new(std::nothrow) Bucket[_hash_size]);
+        memset(_hash_bkts.get(), 0, _hash_size * sizeof(Bucket));
         for (auto& [k, v] : data) {
             auto hash = Hasher()(k);
-
             auto& bkt = _hash_bkts[hash2index(hash)];
-            if (bkt.kv_num == 0) {
-                memset(&bkt, 0, sizeof(bkt));
-            }
             if (bkt.kv_num < NUM_RESIDENT_KV) {
                 if constexpr (STORE_HASH_AS_KEY) {
                     bkt.resident_kvs[bkt.kv_num].set_key(hash);
@@ -216,27 +224,30 @@ public:
                     bkt.resident_kvs[bkt.kv_num].set_key(k);
                 }
                 bkt.resident_kvs[bkt.kv_num].set_val(v);
-                bkt.hash_heads[bkt.kv_num] = hash2head(hash);
             } else {
-                auto ext_num = bkt.kv_num - NUM_RESIDENT_KV;
-                if (bkt.external_head == nullptr || (ext_num & 1) == 0) {
-                    auto node = new ListNode();
-                    if constexpr (STORE_HASH_AS_KEY) {
-                        node->kvs[0].set_key(hash);
-                    } else {
-                        node->kvs[0].set_key(k);
-                    }
-                    node->kvs[0].set_val(v);
-                    node->next.reset(bkt.external_head.release());
-                    bkt.external_head.reset(node);
+                KeyValuePair* kv;
+                if (bkt.external_head == nullptr) {
+                    bkt.external_head.reset(new ListNode);
+                    kv = &bkt.external_head->kvs[0];
                 } else {
-                    if constexpr (STORE_HASH_AS_KEY) {
-                        bkt.external_head->kvs[1].set_key(hash);
+                    auto node = bkt.external_head.get();
+                    for (; node->next != nullptr; node = node->next.get());
+                    if (((bkt.kv_num - NUM_RESIDENT_KV) & 1) == 0) {
+                        node->next.reset(new ListNode);
+                        kv = &node->next->kvs[0];
                     } else {
-                        bkt.external_head->kvs[1].set_key(k);
+                        kv = &node->kvs[1];
                     }
-                    bkt.external_head->kvs[1].set_val(v);
                 }
+                if constexpr (STORE_HASH_AS_KEY) {
+                    kv->set_key(hash);
+                } else {
+                    kv->set_key(k);
+                }
+                kv->set_val(v);
+            }
+            if (bkt.kv_num < 7) {
+                bkt.hash_heads[bkt.kv_num] = hash2head(hash);
             }
             ++bkt.kv_num;
         }
@@ -271,21 +282,34 @@ public:
             }
         };
 
-        for (int i = 0, n = bkt.kv_num < NUM_RESIDENT_KV ? bkt.kv_num : NUM_RESIDENT_KV; i < n; ++i) {
-            if (bkt.hash_heads[i] == hash2head(hash) && cmp(bkt.resident_kvs[i])) {
-                return &bkt.resident_kvs[i].get_val();
+        uint8_t  ih = 0;
+        for (auto hh = hash2head(hash), nh = bkt.kv_num < 7 ? bkt.kv_num : 7; ih < nh; ++ih) {
+            if (bkt.hash_heads[ih] == hh) {
+                if (ih >= NUM_RESIDENT_KV) {
+                    break;
+                } else if (cmp(bkt.resident_kvs[ih])) {
+                    return &bkt.resident_kvs[ih].get_val();
+                }
             }
         }
-        if (bkt.kv_num <= NUM_RESIDENT_KV) {
+        if (ih >= bkt.kv_num) {
             return nullptr;
         }
 
-        if (cmp(bkt.external_head->kvs[0])) {
-            return &bkt.external_head->kvs[0].get_val();
-        } else if ((bkt.kv_num & 1) == 0 && cmp(bkt.external_head->kvs[1])) {
-            return &bkt.external_head->kvs[1].get_val();
+        auto node = bkt.external_head.get();
+        for (uint8_t rn = (ih - NUM_RESIDENT_KV) / 2, i = 0; i < rn; ++i) {
+            node = node->next.get();
         }
-        for (auto node = bkt.external_head->next.get(); node != nullptr; node = node->next.get()) {
+
+        uint8_t rn = ih - NUM_RESIDENT_KV;
+        if (cmp(node->kvs[rn & 1])) {
+            return &node->kvs[rn & 1].get_val();
+        }
+        if ((rn & 1) == 0 && cmp(node->kvs[1])) {
+            return &node->kvs[1].get_val();
+        }
+
+        for (node = node->next.get(); node != nullptr; node = node->next.get()) {
             if (cmp(node->kvs[0])) {
                 return &node->kvs[0].get_val();
             } else if (cmp(node->kvs[1])) {
@@ -351,7 +375,7 @@ int main() {
     }
     for (size_t i = 0; i < svec.size(); ++i) {
         std::string_view sv = {svec[i].c_str(), svec[i].size()};
-        um[sv] = i;
+        um[sv] = std::stoi(sv.data());
     }
 
     fhm.build(um);
