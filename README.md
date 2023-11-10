@@ -69,6 +69,10 @@ Core(s) per socket:      28
 Socket(s):               2
 ```
 ![image](https://github.com/CoderLSF/RapidLLaMA/assets/65639063/d4477fcb-96fb-4b0a-a1fd-30ca583d0aa2)
+
+![2a58bda471f0aa2770f349dba73a530d](https://github.com/CoderLSF/fast-llama/assets/65639063/c3634948-280d-47c8-b9e7-ff07d7104b86)
+
+
 > Latancy of first token will be optimized laterly.
 
 ## Why
