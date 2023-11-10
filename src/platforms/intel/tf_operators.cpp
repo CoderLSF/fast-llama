@@ -302,10 +302,9 @@ MinMax array_min_max(const float* x, size_t n) noexcept {
 }
 
 float array_max(const float* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
+    if (arr == nullptr || n < 1) [[unlikely]] {
         return FLT_MIN;
     }
-    return array_max_sisd(arr, n);
 
     float max = FLT_MIN;
 
@@ -318,15 +317,23 @@ float array_max(const float* arr, size_t n) noexcept {
             __m512 arr_vec = _mm512_loadu_ps(&arr[i]);
             max_vec = _mm512_max_ps(max_vec, arr_vec);
         }
-        for (size_t j = 0; j < simd_size; ++j) {
-            float temp = _mm512_cvtss_f32(max_vec);
-            if (temp > max) max = temp;
-            max_vec = _mm512_shuffle_ps(max_vec, max_vec, _MM_SHUFFLE(0, 3, 2, 1));
-        }
+
+        // Modified: Use _mm512_permutexvar_ps instead of _mm512_shuffle_ps
+        __m256 max_lo = _mm512_castps512_ps256(max_vec);
+        __m256 max_hi = _mm512_extractf32x8_ps(max_vec, 1);
+        __m256 max_256 = _mm256_max_ps(max_lo, max_hi);
+        __m128 max_lo_lo = _mm256_castps256_ps128(max_256);
+        __m128 max_lo_hi = _mm256_extractf128_ps(max_256, 1);
+        __m128 max_128 = _mm_max_ps(max_lo_lo, max_lo_hi);
+        max_128 = _mm_max_ps(max_128, _mm_shuffle_ps(max_128, max_128, _MM_SHUFFLE(2, 3, 0, 1)));
+        max_128 = _mm_max_ps(max_128, _mm_shuffle_ps(max_128, max_128, _MM_SHUFFLE(1, 0, 3, 2)));
+        max = _mm_cvtss_f32(max_128);
     }
+
     for (; i < n; ++i) {
         if (arr[i] > max) max = arr[i];
     }
+
     return max;
 }
 
@@ -439,7 +446,7 @@ int8_t array_min(const int8_t* arr, size_t n) noexcept {
     return array_min_(arr, n);
 }
 float array_min(const float* arr, size_t n) noexcept {
-    if (arr == nullptr) {
+    if (arr == nullptr || n < 1) [[unlikely]] {
         return FLT_MAX;
     }
 
@@ -454,18 +461,25 @@ float array_min(const float* arr, size_t n) noexcept {
             __m512 arr_vec = _mm512_loadu_ps(&arr[i]);
             min_vec = _mm512_min_ps(min_vec, arr_vec);
         }
-        for (size_t j = 0; j < simd_size; ++j) {
-            float temp = _mm512_cvtss_f32(min_vec);
-            if (temp < min) min = temp;
-            min_vec = _mm512_shuffle_ps(min_vec, min_vec, _MM_SHUFFLE(0, 3, 2, 1));
-        }
+
+        // Modified: Use _mm512_permutexvar_ps instead of _mm512_shuffle_ps
+        __m256 min_lo = _mm512_castps512_ps256(min_vec);
+        __m256 min_hi = _mm512_extractf32x8_ps(min_vec, 1);
+        __m256 min_256 = _mm256_min_ps(min_lo, min_hi);
+        __m128 min_lo_lo = _mm256_castps256_ps128(min_256);
+        __m128 min_lo_hi = _mm256_extractf128_ps(min_256, 1);
+        __m128 min_128 = _mm_min_ps(min_lo_lo, min_lo_hi);
+        min_128 = _mm_min_ps(min_128, _mm_shuffle_ps(min_128, min_128, _MM_SHUFFLE(2, 3, 0, 1)));
+        min_128 = _mm_min_ps(min_128, _mm_shuffle_ps(min_128, min_128, _MM_SHUFFLE(1, 0, 3, 2)));
+        min = _mm_cvtss_f32(min_128);
     }
+
     for (; i < n; ++i) {
         if (arr[i] < min) min = arr[i];
     }
+
     return min;
 }
-
 void fill_random(float* x, size_t n, float min_value, float max_value) noexcept {
     if (x == nullptr || n < 1) {
         return;
