@@ -362,11 +362,11 @@ void ParallelTransformer::execute_attn(ThreadData& td, Task t, const ThreadGroup
 
         for (int i = 0; i < hgs; ++i) {
             auto t = q[i];
-            iqkv.copy_to(t, _tfc.head_size * (td.c.kv_heads_offset * hgs + i));
+            iqkv.copy_to(t, _tfc.head_size * ((td.c.kv_heads_offset + ihead) * hgs + i));
         }
 
-        iqkv.copy_to(k, _tfc.head_size * td.c.kv_heads_offset + _tfc.dim);
-        iqkv.copy_to(v, _tfc.head_size * td.c.kv_heads_offset + _tfc.dim + _tfc.kv_dim);
+        iqkv.copy_to(k, _tfc.head_size * (td.c.kv_heads_offset + ihead) + _tfc.dim);
+        iqkv.copy_to(v, _tfc.head_size * (td.c.kv_heads_offset + ihead) + _tfc.dim + _tfc.kv_dim);
 
         if constexpr (false) {
             q.sequence_rope(_tfw.rope_freq_cis, pos);
@@ -386,7 +386,7 @@ void ParallelTransformer::execute_attn(ThreadData& td, Task t, const ThreadGroup
         vl.weighted_sum(att, o, 0, 1e-25);
         for (int i = 0; i < hgs; ++i) {
             auto t = o[i];
-            io.copy_from(t, _tfc.head_size * (td.c.kv_heads_offset * hgs + i));
+            io.copy_from(t, _tfc.head_size * ((td.c.kv_heads_offset + ihead) * hgs + i));
         }
     }
 }
