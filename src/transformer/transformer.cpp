@@ -357,8 +357,8 @@ void ParallelTransformer::execute_attn(ThreadData& td, Task t, const ThreadGroup
         auto kl = kc.slice(coff, coff + seqlen);
         auto vl = vc.slice(coff, coff + seqlen);
 
-        auto k = kl.slice(coff + pos, coff + seqlen);
-        auto v = vl.slice(coff + pos, coff + seqlen);
+        auto k = kl.slice(pos, seqlen);
+        auto v = vl.slice(pos, seqlen);
 
         for (int i = 0; i < hgs; ++i) {
             auto t = q[i];
