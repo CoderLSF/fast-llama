@@ -1,6 +1,5 @@
 # Fast-LLaMA: A High-Performance Inference Engine
-
-![image](https://github.com/CoderLSF/rapid-llama/assets/65639063/fc0e63df-b16f-4f6c-a0c6-9d9a018ad39c)
+![image](https://github.com/CoderLSF/fast-llama/assets/65639063/4ce370ec-1a5c-4554-9d47-4b6e3b880c59)
 
 
 ## Descriptions
