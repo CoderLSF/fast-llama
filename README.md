@@ -1,6 +1,5 @@
 # Fast-LLaMA: A High-Performance Inference Engine
-![image](https://github.com/CoderLSF/fast-llama/assets/65639063/4ce370ec-1a5c-4554-9d47-4b6e3b880c59)
-
+![image](https://github.com/CoderLSF/fast-llama/assets/65639063/7d09052c-1797-4b40-9fd4-c7d21408d0b2)
 
 ## Descriptions
 fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in C++ which can run a **`8-bit`** quantized **`LLaMA2-7B`** model on a cpu with 56 cores in speed of **`~30 tokens / s`**. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
