@@ -86,7 +86,7 @@ Why is it so fast?
 
 ## License
 
-fast-llama is licensed under the [Apache 2 License](LICENSE).
+fast-llama is licensed under the [MIT](LICENSE).
 
 ## Acknowledgements
 
