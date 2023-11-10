@@ -21,7 +21,7 @@ Why use Fast-LLaMA?
 Only Linux is supported currently. Support of other platforms including Windows, Mac, GPU is coming soon.
 
 #### Requisitions
-- gcc version 10.x or newer versions
+- GCC 10.x or newer versions
 - CPU with AVX-512
 - libnuma-dev
 
