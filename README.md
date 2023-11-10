@@ -23,6 +23,7 @@ Only Linux is supported currently. Support of other platforms including Windows,
 
 #### Requisitions
 - gcc version 10.x or newer versions
+- CPU with AVX-512
 - libnuma-dev
 
 > libraries like mpi, openblas, mkl, etc are NOT needed currently.
