@@ -29,7 +29,8 @@ namespace cpuft::quant {
 template <typename T>
 inline void quantize(T* qx, float* qs, const float* x, size_t n, int gs) noexcept {
     constexpr float QF = (std::is_same<T, Bit4Pair>::value) ? QUANT4_FACTOR : (sizeof(T) == 1 ? QUANT8_FACTOR : QUANT16_FACTOR);
-    constexpr float  F = QF - 0.5/QF;
+    //constexpr float  F = QF - 0.5/QF;
+    constexpr float  F = QF;// - 0.5/QF;
     for (size_t i = 0, e = (n+gs-1)/gs; i < e; ++i, x += gs, qx += gs) {
         auto gn = std::min(size_t(n - gs*i), size_t(gs));
         float r = array_max_abs(x, gn) / F;
