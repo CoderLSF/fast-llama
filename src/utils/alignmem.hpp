@@ -51,29 +51,29 @@ public:
         free();
     }
 
-    T* get() const {
+    T* get() const noexcept {
         return ptr_;
     }
-    T* data() const {
+    T* data() const noexcept {
         return ptr_;
     }
-    operator T*() const {
+    operator T*() const noexcept {
         return ptr_;
     }
-    T& operator[](size_t i) const {
+    T& operator[](size_t i) const noexcept {
         return ptr_[i];
     }
-    T* operator->() const {
+    T* operator->() const noexcept {
         return ptr_;
     }
-    bool empty() const {
+    bool empty() const noexcept {
         return ptr_ == nullptr;
     }
-    size_t size() const {
+    size_t size() const noexcept {
         return num_elements_;
     }
 
-    bool alloc(size_t num_elements, bool use_numa=true) {
+    bool alloc(size_t num_elements, bool use_numa=true) noexcept {
         free();
         use_numa_ = use_numa;
         if (num_elements <= 0 || ((unsigned)ALIGN_SIZE & ((unsigned)ALIGN_SIZE - 1)) != 0) {
@@ -106,7 +106,7 @@ public:
         return true;
     }
 
-    void free() {
+    void free() noexcept {
         if (ptr_ == nullptr) {
             return;
         }
