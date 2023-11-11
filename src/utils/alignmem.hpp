@@ -13,7 +13,7 @@
 
 namespace cpuft {
 
-template <typename T, size_t ALIGN_SIZE=1>
+template <typename T, size_t ALIGN_SIZE=8>
 struct AlignedMemory {
 public:
     AlignedMemory() {}
