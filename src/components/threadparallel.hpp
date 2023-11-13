@@ -431,17 +431,5 @@ private:
     Error                           _err = Error::OK;
 };
 
-static std::string serialize_vector(const auto& vec) {
-    std::string s;
-    for (auto v : vec) {
-        if (s.size() > 0) {
-            s += ", " + std::to_string(v);
-        } else {
-            s = std::to_string(v);
-        }
-    }
-    return s;
-};
-
 } // namespace cpuft
 
