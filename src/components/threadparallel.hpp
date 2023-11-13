@@ -290,6 +290,7 @@ protected:
         }
     }
 
+    // Build a hierarchical notifying tree shaped like a snowflake to minimize the latancy for each thread to start to work
     void build_notify_tree(int total_thread_num, NotifyTreeType ntt, int btsize, int max_depth, NotifyGroup& ng) {
         if (ntt == NotifyTreeType::AUTO) {
             ntt = NotifyTreeType::BTREE;
