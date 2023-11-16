@@ -49,28 +49,26 @@ Method 2. Using Make:
 make -j 4
 ```
 
-### Get Models
-For testing, you can download any one of supported models.
-
-1. llama2c
-   See [llama2.c](https://github.com/karpathy/llama2.c)
-2. Chinese-LLaMA
-   See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
-
-
 ### Run
 
 #### 1. Run with llama2.c models:
+**`Step 1`**: Download model
+See [llama2.c](https://github.com/karpathy/llama2.c)
+
+**`Step 2`**: Run the model
 ```bash
 ./main -c ./models/stories110M.bin -z ./models/tokenizer.bin -j 14 -q int8 -n 200 -i 'That was a long long story happened in the ancient China.'
 ```
 
 #### 2. Run with hugging face format models
 **`Step 1`**: Download model
+See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
+
 **`Step 2`**: Convert model format
 ```bash
 python3 ./tools/convert_flm.py -m /path/to/model-directory -o ./models/model-name-int8.flm -t int8
 ```
+
 **`Step 3`**: Run the model
 ```bash
 ./main -c ./models/model-name-int8.flm -j 40 -n 200 -i 'That was a long long story happened in the ancient China.'
