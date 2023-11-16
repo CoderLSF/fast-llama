@@ -13,7 +13,7 @@ Currently supported features:
 | Quantization | INT16, INT8 | INT4 |
 | Model Format | HuggingFace, gguf(by llama.cpp), flm | |
 | System | Linux | Windows, Macbook |
-| CPU/GPU | Intel CPU with AVX-512 | Apple Mn, GPU |
+| CPU/GPU | Intel CPU with AVX-512 | Apple Mx, GPU |
 
 ## **Advantages**
 Why use Fast-LLaMA?
@@ -48,6 +48,16 @@ Method 2. Using Make:
 ```bash
 make -j 4
 ```
+
+### Get Models
+For testing, you can download any one of supported models.
+
+1. llama2c
+   See [llama2.c](https://github.com/karpathy/llama2.c)
+2. Chinese-LLaMA
+   See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
+
+
 ### Run
 To run the inference engine, execute the following command:
 > Only gguf and llama2.c format of models are currently supported. Independent formort is coming soon.
