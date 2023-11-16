@@ -59,13 +59,25 @@ For testing, you can download any one of supported models.
 
 
 ### Run
-To run the inference engine, execute the following command:
-> Only gguf and llama2.c format of models are currently supported. Independent formort is coming soon.
+
+#### 1. Run with llama2.c models:
 ```bash
-./main -c ./models/cnllama-7b/ggml-model-f32.gguf -f gguf -j 56 -q int8 -n 200 -i 'That was a long long story happened in the ancient China.'
+./main -c ./models/stories110M.bin -z ./models/tokenizer.bin -j 14 -q int8 -n 200 -i 'That was a long long story happened in the ancient China.'
 ```
 
-The command-line options are as follows:
+#### 2. Run with hugging face format models
+**`Step 1`**: Download model
+**`Step 2`**: Convert model format
+```bash
+python3 ./tools/convert_flm.py -m /path/to/model-directory -o ./models/model-name-int8.flm -t int8
+```
+**`Step 3`**: Run the model
+```bash
+./main -c ./models/model-name-int8.flm -j 40 -n 200 -i 'That was a long long story happened in the ancient China.'
+```
+
+> 
+All supported command-line options are as follows:
 
 - `-c`: Path to the model file
 - `-f`: Model file format (e.g., gguf)
