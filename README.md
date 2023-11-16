@@ -102,9 +102,10 @@ Below are some incomplete test results
 
 #### Testing Conditions
 
-- Quantization: `int8`
+- **Quantization**: `int8`
+- **NUMA**: 2 sockets
+- **CPU**: 56 physical cores, AVX-512
 
-- CPU:
 ```text
 Architecture:            x86_64
 Model name:              Intel(R) Xeon(R) Platinum 8350C CPU @ 2.60GHz
