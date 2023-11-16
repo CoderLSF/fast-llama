@@ -102,6 +102,7 @@ Below are some incomplete test results
 
 #### Testing Conditions
 
+- **Testing Prompt**: "That was a long long story happened in the ancient Europe. It was about a brave boy name Oliver. Oliver lived in a small village among many big moutains. It was a beautiful village."
 - **Quantization**: `int8`
 - **NUMA**: 2 sockets
 - **CPU**: 56 physical cores, AVX-512
