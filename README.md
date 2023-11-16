@@ -50,7 +50,7 @@ make -j 4
 ### Run
 
 #### 1. Run with llama2.c models:
-**`Step 1`**: Download model
+**`Step 1`**: Download a model
 
 See [llama2.c](https://github.com/karpathy/llama2.c)
 
