@@ -52,7 +52,7 @@ make -j 4
 #### 1. Run with llama2.c models:
 **`Step 1`**: Download a model
 
-See [llama2.c](https://github.com/karpathy/llama2.c)
+>   See [llama2.c](https://github.com/karpathy/llama2.c)
 
 **`Step 2`**: Run the model
 ```bash
@@ -64,7 +64,7 @@ See [llama2.c](https://github.com/karpathy/llama2.c)
 #### 2. Run with hugging face format models
 **`Step 1`**: Download a model
 
-See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
+>   See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
 
 **`Step 2`**: Convert model format
 ```bash
