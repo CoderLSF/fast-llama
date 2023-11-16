@@ -12,7 +12,7 @@ fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (*
 | **Quantization** | ✅INT16, ✅INT8 | INT4 |
 | **Model Formats** | ✅HuggingFace, ✅gguf(by llama.cpp), ✅flm | |
 | **Systems** | ✅Linux | Windows, Macbook, Android, iOS |
-| **CPU/GPU** | ✅Intel CPU with AVX-512 | All x86/64, ARM, Apple Mx, GPU, CPU+GPU |
+| **CPU/GPU** | ✅Intel CPU with AVX-512 | All x86/64, ARM, Apple Mx CPUs, GPU, CPU+GPU |
 | **Architectures** | ✅UMA, ✅NUMA | |
 
 ## **Advantages**
