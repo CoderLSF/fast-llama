@@ -93,8 +93,8 @@ Below are some incomplete test results
 #### Testing Result:
 
 | Model | Model Size | OutputSpeed/8 threads | OutputSpeed/28 threads | OutputSpeed/56 threads |
-| --- | --- | --- | --- | --- |
-| stories110M | 110B | `364`tps | `645`tps | `668`tps |
+| :--: | --: | --: | --: | --: |
+| stories110M | 110M | `364`tps | `645`tps | `668`tps |
 | Chinese-LLaMA-1.3B | 1.3B | `57`tps | `172`tps | `227`tps |
 | Chinese-LLaMA-7B | 7B | `8`tps | `25`tps | `34`tps |
 
