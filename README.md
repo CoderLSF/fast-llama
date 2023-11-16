@@ -62,7 +62,7 @@ See [llama2.c](https://github.com/karpathy/llama2.c)
 ```
 
 #### 2. Run with hugging face format models
-**`Step 1`**: Download model
+**`Step 1`**: Download a model
 
 See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
 
