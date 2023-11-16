@@ -23,8 +23,6 @@ Why use Fast-LLaMA?
    - Totally less than 7k lines of C++ codes with well-orgnized code structures and no dependencies except NUMA (if needed for multi-cpus).
 - **`"Easy To Use"`** (target ☺️）
 
-> ⚠️ Only **`CPU`** is supported currently. Support for GPU is coming soon.
-
 ## Quick Start
 
 ### Compile
