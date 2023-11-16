@@ -67,8 +67,6 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
 
     bool shared_weights = raw_conf.vocab_size > 0;
 
-    print_summary();
-
     if (is_debug) tf_log_debug("Loading tokenizer from:[%s] ...", tokenizer_path.data());
     if (!tokenizer.load(tokenizer_path, conf.vocab_size)) {
         tf_log_error("Failed to load tokenizer from:%s", tokenizer_path.data());
@@ -179,7 +177,9 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
         return false;
     }
 
-    if (is_debug) tf_log_debug("Model loaded");
+    if (is_debug) {
+        print_summary();
+    }
     return true;
 }
 
