@@ -4,6 +4,17 @@
 ## Descriptions
 fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (**3x** of `llama.cpp`) written in `pure C++`. It can run a **`8-bit`** quantized **`LLaMA2-7B`** model on a cpu with 56 cores in speed of **`~30 tokens / s`**. It outperforms all current open-source inference engines, especially when compared to the renowned llama.cpp, with 2~3 times better inference speed on a CPU.
 
+## Features
+Currently supported features:
+
+| Feature Name | Current Support | Future Suport |
+| --- | --- | --- |
+| Model Types | LLaMA (Only Chinese-LLaMA2 1.3B & 7B are verified currently) | Baichuan |
+| Quantization | INT16, INT8 | INT4 |
+| Model Format | HuggingFace, gguf(by llama.cpp), flm | |
+| System | Linux | Windows, Macbook |
+| CPU/GPU | Intel CPU with AVX-512 | Apple Mn, GPU |
+
 ## **Advantages**
 Why use Fast-LLaMA?
 - **`Fast`**
