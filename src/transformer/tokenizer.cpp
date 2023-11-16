@@ -225,6 +225,7 @@ bool Tokenizer::load(std::string_view path, int vocab_size) {
         }
         _text_data[bufpos+len] = '\0';
         _vocab[i].index_text = _text_data.get() + bufpos;
+        _vocab[i].show_text  = _vocab[i].index_text;
         bufpos += size_t(len + 7) & ~7u;
     }
     build_text2id_map();
