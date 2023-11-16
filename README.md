@@ -88,9 +88,23 @@ All supported command-line options are as follows:
 - `-h`: show usage information
 
 ## Performance
+Below are some incomplete test results
 
-fast-llama achieves a generation speed of approximately 25-30 tokens/s for an 8-bit quantized 7B model running on the following CPU configuration:
+#### Testing Result:
 
+| Model | Model Size | OutputSpeed/8 threads | OutputSpeed/28 threads | OutputSpeed/56 threads |
+| --- | --- | --- | --- | --- |
+| stories110M | 110B | `364`tps | `645`tps | `668`tps |
+| Chinese-LLaMA-1.3B | 1.3B | `57`tps | `172`tps | `227`tps |
+| Chinese-LLaMA-7B | 7B | `8`tps | `25`tps | `34`tps |
+
+* Note: tps = tokens / second
+
+#### Testing Conditions
+
+- Quantization: `int8`
+
+- CPU:
 ```text
 Architecture:            x86_64
 Model name:              Intel(R) Xeon(R) Platinum 8350C CPU @ 2.60GHz
@@ -99,6 +113,9 @@ Thread(s) per core:      2
 Core(s) per socket:      28
 Socket(s):               2
 ```
+
+<img width="1501" alt="image" src="https://github.com/CoderLSF/fast-llama/assets/65639063/28156af1-142e-417c-9b94-8d931fac8884">
+
 ![image](https://github.com/CoderLSF/RapidLLaMA/assets/65639063/d4477fcb-96fb-4b0a-a1fd-30ca583d0aa2)
 
 ![2a58bda471f0aa2770f349dba73a530d](https://github.com/CoderLSF/fast-llama/assets/65639063/c3634948-280d-47c8-b9e7-ff07d7104b86)
