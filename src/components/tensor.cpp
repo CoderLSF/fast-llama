@@ -1,6 +1,6 @@
 /******************************************************************
-    Author: Liu Shaofeng
-      Date: 2023/10/17
+ @Author: Liu Shaofeng
+ @Date: 2023/10/17
  ******************************************************************/
 
 #include "tensor.h"
@@ -37,7 +37,7 @@ Tensor::Tensor(const Tensor& other) {
         _scales = other._scales;
         return;
     }
-    if (other._data != nullptr) {
+    if (other._data != nullptr) [[likely]] {
         if (!reserve_memory()) {
             throw std::runtime_error("Out of memory");
         }
@@ -75,9 +75,38 @@ Tensor& Tensor::operator=(const Tensor& other) {
     return *this;
 }
 
+bool Tensor::read_data(std::ifstream& file, ssize_t data_offset, ssize_t scales_offset) noexcept {
+    if (!reserve_memory()) {
+        tf_log_error("Out of memory for tensor");
+        return false;
+    }
+
+    if (data_offset >= 0) {
+        file.seekg(data_offset, std::ios::beg);
+    }
+    if (!file.read(_data, data_memory_size())) {
+        tf_log_error("Reading tensor data error");
+        return false;
+    }
+    if (is_quantized()) {
+        if (scales_offset >= 0) {
+            file.seekg(scales_offset, std::ios::beg);
+        }
+        if (!file.read(reinterpret_cast<char*>(_scales), scales_memory_size())) {
+            tf_log_error("Reading tensor scales error");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 Tensor Tensor::copy(MemoryType mt) const noexcept {
+    if (mt == MemoryType::NONE) {
+        mt = MemoryType(_mtype);
+    }
     Tensor t(shape(), QuantType(_qtype), _qgsize);
-    t._mtype = _mtype;
+    t._mtype = uint8_t(mt);
     if (MemoryType(_mtype) == MemoryType::MANAGED) {
         t._data = _data;
         t._scales = _scales;
@@ -94,13 +123,18 @@ Tensor Tensor::copy(MemoryType mt) const noexcept {
 
 bool Tensor::copy(Tensor& t, const Tensor& s,
             int target_start_column, int source_start_column, int columns) noexcept {
-    if (s._data == nullptr || source_start_column >= s._columns || target_start_column >= t._columns) {
+    if (s._data == nullptr || source_start_column >= s._columns || target_start_column >= t._columns) [[unlikely]] {
+        tf_log_debug("No need to copy");
         return true;
     }
-    if (s._qtype != t._qtype || (s.is_quantized() && (s._qgsize != t._qgsize || (source_start_column % s._qgsize) != 0 || (target_start_column % t._qgsize) != 0))) {
+    if (s._qtype != t._qtype || (s.is_quantized() && (s._qgsize != t._qgsize
+            || (source_start_column % s._qgsize) != 0 || (target_start_column % t._qgsize) != 0))) [[unlikely]] {
+        tf_log_error("Invalid parameters for Tensor::copy() t.qtype:%-8s s.qtype:%-8s t.group_size:%-2d s.group_size:%-2d target_start_column:%-5d source_start_column:%-5d",
+                t.quant_type_name(), s.quant_type_name(), int(t._qgsize), int(s._qgsize), target_start_column, source_start_column);
         return false;
     }
-    if (!t.reserve_memory()) {
+    if (!t.reserve_memory()) [[unlikely]] {
+        tf_log_debug("Out of memory for Tensor::copy()");
         return false;
     }
     if (source_start_column == 0 && target_start_column == 0 && columns == s._columns && columns == t._columns) {
@@ -184,31 +218,36 @@ bool Tensor::zero() noexcept {
     return true;
 }
 bool Tensor::random(float max_value, float min_value) noexcept {
-    if (!reserve_memory()) {
+    if (!reserve_memory()) [[unlikely]] {
         return false;
     }
     quant::fill_random(QuantType(_qtype), _data, _scales, size(), _qgsize, min_value, max_value);
     return true;
 }
 
-void Tensor::print(std::string_view prefix, bool show_attributes, bool pretty_print, int display_num) const noexcept {
+void Tensor::print(std::string_view prefix, bool show_attributes, bool pretty_print, int display_num, int precision, int column_start, int column_end) const noexcept {
     if (prefix.size() > 0) {
         std::cout << std::setw(15) << prefix;
     }
-    std::cout << display_string(show_attributes, pretty_print, display_num) << std::endl;
+    std::cout << display_string(show_attributes, pretty_print, display_num, precision, column_start, column_end) << std::endl;
 }
 
-static std::string build_summary(Tensor t, size_t display_num) {
+static std::string build_summary(Tensor t, size_t display_num, int precision) {
     size_t size = t.size();
     if (display_num > size) {
         display_num = size;
     }
-    if (display_num == 0) {
+    if (display_num == 0) [[unlikely]] {
         return size > 0 ? "[...]" : "[]";
     }
 
     std::ostringstream oss;
-    auto outf = [&oss](float v) {
+    auto outf = [&oss, precision](float v) {
+        if (precision >= 0) {
+            oss << std::setw(precision+4) << std::setprecision(precision) << std::fixed << v;
+            return;
+        }
+
         auto abs = fabsf(v);
         oss << std::setw(10);
         if (abs == 0.) {
@@ -217,7 +256,7 @@ static std::string build_summary(Tensor t, size_t display_num) {
             oss << std::setprecision(0) << std::fixed;
         } else if (abs > 1e8 || abs <= 1e-4) {
             oss << std::setprecision(3) << std::scientific;
-        } else if (abs > 1e-4 && abs < 1.0) {
+        } else if (abs > 1e-4 && abs < 10.0) {
             oss << std::setprecision(6) << std::fixed;
         } else {
             oss << std::setprecision(4) << std::fixed;
@@ -244,9 +283,12 @@ static std::string build_summary(Tensor t, size_t display_num) {
     return oss.str();
 }
 
-std::string Tensor::display_string(bool show_attributes, bool pretty_print, int display_num) const noexcept {
+std::string Tensor::display_string(bool show_attributes, bool pretty_print, int display_num, int precision, int column_start, int column_end) const noexcept {
     if (display_num < 4) {
         display_num = 4;
+    }
+    if (column_end <= 0) {
+        column_end = _columns;
     }
 
     auto n = size();
@@ -274,7 +316,7 @@ std::string Tensor::display_string(bool show_attributes, bool pretty_print, int 
         if (nrows > 1) {
             oss << "[\n";
         }
-        auto hrows = nrows <= 6 ? nrows : 4;
+        auto hrows = nrows <= 8 ? nrows : 6;
         for (int i = 0; i < hrows && i < nrows; ++i) {
             if (i > 0) {
                 oss << "\n";
@@ -282,11 +324,11 @@ std::string Tensor::display_string(bool show_attributes, bool pretty_print, int 
             if (nrows > 1) {
                 oss << std::setw(4) << i << ":";
             }
-            oss << build_summary(row_slice(i), display_num);
+            oss << build_summary(row_slice(i).slice(column_start, column_end), display_num, precision);
         }
         if (hrows < nrows) {
             oss << "\n     ...\n";
-            oss << std::setw(4) << nrows-1 << ":" << build_summary(row_slice(nrows-1), display_num);
+            oss << std::setw(4) << nrows-1 << ":" << build_summary(row_slice(nrows-1).slice(column_start, column_end), display_num, precision);
         }
         if (nrows > 1) {
             oss << "\n]";
@@ -296,7 +338,7 @@ std::string Tensor::display_string(bool show_attributes, bool pretty_print, int 
 }
 
 void Tensor::release() noexcept {
-    if (_data == nullptr) {
+    if (_data == nullptr) [[unlikely]] {
         return;
     }
     free(MemoryType(_mtype), _data, memory_size());
@@ -468,7 +510,7 @@ bool Tensor::quantize(std::span<const float> data, int layer, int row_offset) no
 }
 
 bool Tensor::dequantize(const Tensor& b) noexcept {
-    if (is_quantized() || !is_same_shape(b) || b._data == nullptr) {
+    if (is_quantized() || !is_same_shape(b) || b._data == nullptr) [[unlikely]] {
         return false;
     }
 
@@ -516,8 +558,8 @@ float Tensor::min_(size_t offset, size_t length) const noexcept {
 
 void Tensor::matmul(const Tensor& b, Tensor& out, int layer) const {
     if (b._qtype != _qtype || b._qgsize != _qgsize) {
-        ft_log_error("this.quant_type:%d\tb.quant_type:%d\tthis.group_size:%d\tb.group_size:%d",
-            _qtype, b._qtype, _qgsize, b._qgsize);
+        ft_log_error("this.quant_type:%s\tb.quant_type:%s\tthis.group_size:%d\tb.group_size:%d",
+            quant_type_name(), b.quant_type_name(), _qgsize, b._qgsize);
         throw std::runtime_error("b should be the same quantization type for matmul()");
     }
     if (out.is_quantized()) {
@@ -547,7 +589,7 @@ void Tensor::matmul(const Tensor& b, Tensor& out, int layer) const {
 }
 
 void  Tensor::softmax(int columns) noexcept {
-    if (_data == nullptr) {
+    if (_data == nullptr) [[unlikely]] {
         return;
     }
     char*  qx = _data;
@@ -562,7 +604,7 @@ void  Tensor::softmax(int columns) noexcept {
         if (is_quantized()) {
             quant::dequantize(QuantType(_qtype), px, qx, qs, columns, _qgsize);
             cpuft::softmax_sisd(px, columns);
-            if (columns < _columns) {
+            if (columns < _columns) [[unlikely]] {
                 memset(px + columns, 0, sizeof(float) * (_columns - columns));
             }
             quant::quantize(QuantType(_qtype),   qx, qs, px, columns, _qgsize);
@@ -582,7 +624,7 @@ void  Tensor::softmax(int columns) noexcept {
 }
 
 void  Tensor::rmsnorm(const Tensor& x, const Tensor& w) {
-    if (_data == nullptr) {
+    if (_data == nullptr) [[unlikely]] {
         return;
     }
     if (w._columns != _columns || w._rows > 1) {
@@ -603,11 +645,22 @@ void  Tensor::rmsnorm(const Tensor& x, const Tensor& w) {
     }
 }
 
+void Tensor::silu() {
+    if (is_quantized()) [[unlikely]] {
+        throw std::runtime_error("Quantized tensor is not supported yet.");
+    }
+
+    auto po = float_data();
+    for (int i = 0, n = total_rows(); i < n; ++i) {
+        cpuft::silu(po + _columns * i, _columns);
+    }
+}
+
 void Tensor::swiglu(const Tensor& x) {
-    if (!is_same_shape(x)) {
+    if (!is_same_shape(x)) [[unlikely]] {
         throw std::runtime_error("The input tensor should have the same shape");
     }
-    if (_qtype != x._qtype || is_quantized()) {
+    if (_qtype != x._qtype || is_quantized()) [[unlikely]] {
         throw std::runtime_error("Quantized tensor is not supported yet.");
     }
 
@@ -619,10 +672,10 @@ void Tensor::swiglu(const Tensor& x) {
 }
 
 void Tensor::inner_swiglu() {
-    if ((_columns & 1) != 0) {
+    if ((_columns & 1) != 0) [[unlikely]] {
         throw std::runtime_error("columns should be a even number.");
     }
-    if (is_quantized()) {
+    if (is_quantized()) [[unlikely]] {
         throw std::runtime_error("Quantized tensor is not supported yet.");
     }
     auto px  = float_data();
@@ -632,47 +685,52 @@ void Tensor::inner_swiglu() {
 }
 
 void Tensor::weighted_sum(std::span<const float> weights, Tensor& out, int layer, float weight_threshold) const {
-    if (weights.empty() || (_layers > 0 && layer >= _layers)) {
+    if (weights.empty() || (_layers > 0 && layer >= _layers)) [[unlikely]] {
         return;
     }
-    if (out.is_quantized()) {
+    if (out.is_quantized()) [[unlikely]] {
         throw std::runtime_error("result tensor should not be quantized for matmul()");
     }
-    if (_layers > 0 && layer < 0) {
+    if (_layers > 0 && layer < 0) [[unlikely]] {
         layer += _layers;
     }
-    if (!out.reserve_memory()) {
+    if (!out.reserve_memory()) [[unlikely]] {
         throw std::runtime_error("OOM! Out of memory for saving results of matmul().");
-        return;
     }
     return quant::weighted_sum(QuantType(_qtype), out.float_data(), reinterpret_cast<const void*>(_data), _scales, _qgsize, weights.data(), weights.size(), _columns, weight_threshold);
 }
 
 void  Tensor::weighted_sum(const Tensor& weights, Tensor& out, int layer, float weight_threshold) const {
-    if ((_layers > 0 && layer >= _layers) || out.rows() != weights.rows() || out.columns() != _columns) {
+    if ((_layers > 0 && layer >= _layers) || out.rows() != weights.rows() || out.columns() != _columns) [[unlikely]] {
         throw std::runtime_error("invalid parameters");
     }
-    if (out.is_quantized()) {
+    if (out.is_quantized()) [[unlikely]] {
         throw std::runtime_error("result tensor should not be quantized for weighted_sum()");
     }
     if (_layers > 0 && layer < 0) {
         layer += _layers;
     }
-    if (!out.reserve_memory()) {
+    if (!out.reserve_memory()) [[unlikely]] {
         throw std::runtime_error("OOM! Out of memory for result of weighted_sum().");
-        return;
     }
     return quant::weighted_sum(QuantType(_qtype), out.float_data(), reinterpret_cast<const void*>(_data), _scales, _qgsize, weights.float_data(), _rows, _columns, out.rows(), weight_threshold);
 }
 
+void Tensor::add(float value) noexcept {
+    if (_data == nullptr && !reserve_memory()) {
+        return;
+    }
+    return quant::add(QuantType(_qtype), _data, _scales, value, size(), _qgsize);
+}
+
 void Tensor::add(const Tensor& b, int this_column_offset) noexcept {
-    if (b._data == nullptr || this_column_offset >= _columns) {
+    if (b._data == nullptr || this_column_offset >= _columns) [[unlikely]] {
         return;
     }
     int cols = std::min(_columns - this_column_offset, int(b._columns));
     int rows = std::min(total_rows(), b.total_rows());
 
-    if (_data == nullptr) {
+    if (_data == nullptr) [[unlikely]] {
         if (reserve_memory()) {
             zero();
             copy_from(b, this_column_offset);
@@ -691,7 +749,7 @@ void Tensor::add(const Tensor& b, int this_column_offset) noexcept {
     } else if (this_column_offset == 0 && _columns == b._columns) {
         quant::add(QuantType(_qtype), _data, _scales, b._data, b._scales, _columns * rows, _qgsize);
     } else {
-        if (this_column_offset % _qgsize != 0 || cols % _qgsize != 0) {
+        if (this_column_offset % _qgsize != 0 || cols % _qgsize != 0) [[unlikely]] {
             ft_log_error("column offset or columns should be multiple of group size for Tensor::add");
             return;
         }
@@ -710,7 +768,7 @@ void Tensor::add(const Tensor& b, int this_column_offset) noexcept {
 }
 
 Tensor& Tensor::reshape(int columns, int rows, int layers) {
-    if (columns == _columns && rows == _rows && layers == _layers) {
+    if (columns == _columns && rows == _rows && layers == _layers) [[unlikely]] {
         return *this;
     }
     size_t sz = size();

@@ -1,8 +1,3 @@
-/************************************************************************
-     Author: Liu Shaofeng
-       Date: 2023/10/21 08:38
-      Brief: General operators for quantization
- ************************************************************************/
 
 #include "quant_operators.h"
 
@@ -30,8 +25,8 @@ template <typename T>
 inline void quantize(T* qx, float* qs, const float* x, size_t n, int gs) noexcept {
     constexpr float QF = (std::is_same<T, Bit4Pair>::value) ? QUANT4_FACTOR : (sizeof(T) == 1 ? QUANT8_FACTOR : QUANT16_FACTOR);
     //constexpr float  F = QF - 0.5/QF;
-    constexpr float  F = QF;// - 0.5/QF;
-    for (size_t i = 0, e = (n+gs-1)/gs; i < e; ++i, x += gs, qx += gs) {
+    constexpr float  F = QF;
+    for (size_t i = 0, e = (n+gs-1)/gs; i < e; ++i, x += gs) {
         auto gn = std::min(size_t(n - gs*i), size_t(gs));
         float r = array_max_abs(x, gn) / F;
         qs[i] = r;
@@ -39,10 +34,12 @@ inline void quantize(T* qx, float* qs, const float* x, size_t n, int gs) noexcep
             for (size_t j = 0; j < gn; j += 2) {
                 qx[j/2].v = (uint8_t(x[j] / r) & 15) | (uint8_t(x[j+1] / r) << 4);
             }
+            qx += gs/2;
         } else {
             for (size_t j = 0; j < gn; ++j) {
                 qx[j] = x[j] / r;
             }
+            qx += gs;
         }
     }
 }
@@ -381,16 +378,27 @@ void matmul(float* out,
             const Bit4Pair* mat1, const float* scales1,
             const Bit4Pair* mat2, const float* scales2,
             int m, int n, int w, int gs) {
-    n /= 2;
+    int8_t tmp1[gs];
+    int8_t tmp2[gs];
+
+    n  /= 2;
     gs /= 2;
     auto& x1 = mat1;
     for (int t = 0; t < m; ++t, x1 += n) {
         auto x2 = mat2;
         for (int k = 0; k < w; ++k, x2 += n) {
+            for (int i = 0; i < gs; ++i) {
+                tmp2[i]   = x2[i].a;
+                tmp2[i+1] = x2[i].b;
+            }
             float sum = 0;
             for (int i = 0; i < n; i += gs) {
-                int v = dot_product(&x1[i], &x2[i], std::min(int(n-i), int(gs)));
-                sum += v * scales1[i/gs] * scales2[i/gs];
+                for (int j = 0; j < gs; ++j) {
+                    tmp1[j*2]   = x1[j].a;
+                    tmp1[j*2+1] = x1[j].b;
+                }
+                //int v = dot_product(tmp1, tmp2, std::min(int(n-i), int(gs)));
+                sum += scales1[i/gs] * scales2[i/gs] * dot_product(tmp1, tmp2, gs*2);
             }
             out[m*k+t] = sum;
         }
@@ -473,6 +481,33 @@ void add(QuantType qt, void* qx1, float* qs1, const void* qx2, const float* qs2,
         add(reinterpret_cast<int8_t*>(qx1), qs1, reinterpret_cast<const int8_t*>(qx2), qs2, n, gs);
     } else if (qt == QuantType::INT4) {
         add(reinterpret_cast<Bit4Pair*>(qx1), qs1, reinterpret_cast<const Bit4Pair*>(qx2), qs2, n, gs);
+    }
+}
+
+template <typename T>
+inline void add(T* qx, float* qs, float v, size_t n, int group_size) noexcept {
+    //constexpr float QF = (std::is_same<T, Bit4Pair>::value) ? QUANT4_FACTOR : (sizeof(T) == 1 ? QUANT8_FACTOR : QUANT16_FACTOR);
+    //constexpr float  F = QF - 0.5/QF;
+    // TODO: to be implemented
+    return;
+}
+
+void add(QuantType qt, void* qx, float* qs, float v, size_t n, int gs) noexcept {
+    if (qx == nullptr || n < 1) {
+        return;
+    }
+    if (qt == QuantType::NONE) {
+        return cpuft::add(reinterpret_cast<float*>(qx), v, n);
+    }
+    if (qs == nullptr || gs < 1) {
+        return;
+    }
+    if (qt == QuantType::INT16) {
+        add(reinterpret_cast<short*>(qx), qs, v, n, gs);
+    } else if (qt == QuantType::INT8) {
+        add(reinterpret_cast<int8_t*>(qx), qs, v, n, gs);
+    } else if (qt == QuantType::INT4) {
+        add(reinterpret_cast<Bit4Pair*>(qx), qs, v, n, gs);
     }
 }
 
@@ -711,6 +746,7 @@ void fill_random(QuantType qt,
     } else if (qt == QuantType::INT4) {
         fill_random(reinterpret_cast<Bit4Pair*>(qx), qs, n, gs, min_value, max_value);
     }
+
 }
 
 template <typename T>

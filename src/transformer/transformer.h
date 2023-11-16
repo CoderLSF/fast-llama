@@ -1,6 +1,6 @@
 /*************************************************************************************
-   Author: Liu Shaofeng
-     Date: 2023/10/16
+ @Author: Liu Shaofeng
+ @Date:   2023/10/16
 **************************************************************************************/
 
 #pragma once
@@ -25,28 +25,27 @@ namespace cpuft {
 class ParallelTransformer {
     enum class TaskType;
     struct Task;
-    struct GlobalWeights { // Weight tensors that are used during inferencing in main thread.
+    struct GlobalWeights {
         Tensor  token_embedding_table;  // (vocab_size, dim)
         Tensor  rms_att_weight;         // (layer, dim) rmsnorm weights
         Tensor  rms_ffn_weight;         // (layer, dim)
         Tensor  rms_final_weight;       // (dim,)
         Tensor  rope_freq_cis;
     };
-    struct TransformerRuntime { // Global runtime data used during inferencing in main thread.
+    struct TransformerRuntime {
         std::unique_ptr<int[]> tokens;
         int  num_total_tokens  = 0;
         int  num_prompt_tokens = 0;
 
         AlignedMemory<char, 64> buf;
     };
-    struct ThreadRuntime { // Runtime data used during inferencing in each thread of the thread pool.
+    struct ThreadRuntime {
         Tensor k_cache;
         Tensor v_cache;
 
         AlignedMemory<char, 64> buf;
     };
 
-    // Weight tensors used in threads of the thread pool.
     struct ThreadTransformerWeights {
         Tensor  qkv;
         Tensor  attn_o;
@@ -64,7 +63,6 @@ class ParallelTransformer {
         int kv_heads_offset;
     };
 
-    // Thread local data for each thread of the thread pool.
     struct ThreadData {
         ThreadWeightsConfig      c;
         ThreadTransformerWeights w;
@@ -89,6 +87,10 @@ public:
     bool generate(const std::vector<int>& prompt_tokens,
             std::function<bool(std::span<const int> tokens, int index, bool ended)> cb,
             int max_tokens=512, float temperature=1.0f, float topp=0.9f);
+
+    QuantType get_quant_type() const noexcept {
+        return _tfc.quant_type;
+    }
 
 private:
     Tensor forward(std::span<const int> tokens, int pos);
@@ -137,6 +139,8 @@ private:
         _tt_gid_map[int(tt)] = gid;
     }
 
+    void analyze_weights(const TransformerModel& tf);
+
 private:
     enum class TaskType {
         NONE = 0,
@@ -166,7 +170,6 @@ private:
 
     Tokenizer   _tkn;
     Sampler     _sampler;
-    QuantType   _qtype = QuantType::INT8;
 
     TransformerConfig    _tfc;
     GlobalWeights        _tfw;

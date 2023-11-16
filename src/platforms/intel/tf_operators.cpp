@@ -1,8 +1,4 @@
-/************************************************************************
-     Author: Liu Shaofeng
-       Date: 2023/10/21 08:38
-      Brief: General operators
- ************************************************************************/
+
 #include "tf_operators.h"
 
 #include <immintrin.h>
@@ -30,7 +26,7 @@ constexpr float QUANT16_FACTOR = float((uint32_t(1) << 12) - 1);
 constexpr float QUANT8_FACTOR  = float((uint32_t(1) << 7) - 1);
 
 float dot_product_sisd(const float* x1, const float* x2, size_t n) noexcept {
-    if (x1 == nullptr || x2 == nullptr || n < 1) {
+    if (x1 == nullptr || x2 == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     float sum = 0;
@@ -41,7 +37,7 @@ float dot_product_sisd(const float* x1, const float* x2, size_t n) noexcept {
 }
 
 int dot_product_sisd(const int* x1, const int* x2, size_t n) noexcept {
-    if (x1 == nullptr || x2 == nullptr || n < 1) {
+    if (x1 == nullptr || x2 == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     int sum = 0;
@@ -51,7 +47,7 @@ int dot_product_sisd(const int* x1, const int* x2, size_t n) noexcept {
     return sum;
 }
 int dot_product(const int* x1, const int* x2, size_t n) noexcept {
-    if (x1 == nullptr || x2 == nullptr || n < 1) {
+    if (x1 == nullptr || x2 == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     int sum = 0;
@@ -84,7 +80,7 @@ int dot_product(const int8_t* x1, const int8_t* x2, size_t n) noexcept {
 }
 template <typename T>
 int square_sum_sisd(const T* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0.;
     }
     int sum = 0;
@@ -94,7 +90,7 @@ int square_sum_sisd(const T* x, size_t n) noexcept {
     return sum;
 }
 float square_sum_sisd(const float* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0.;
     }
     float sum = 0.;
@@ -105,7 +101,7 @@ float square_sum_sisd(const float* x, size_t n) noexcept {
 }
 
 float square_sum(const float* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     float sum = 0.;
@@ -127,7 +123,7 @@ float square_sum(const float* x, size_t n) noexcept {
 }
 
 int square_sum(const short*  x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
 
@@ -156,7 +152,7 @@ int square_sum(const short*  x, size_t n) noexcept {
     return sum;
 }
 int square_sum(const int8_t* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
 
@@ -198,7 +194,7 @@ int square_sum(const int8_t* x, size_t n) noexcept {
     return sum;
 }
 int array_sum(const int* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     int sum = 0;
@@ -209,7 +205,7 @@ int array_sum(const int* x, size_t n) noexcept {
 }
 
 int array_sum(const short* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     int sum = 0;
@@ -220,7 +216,7 @@ int array_sum(const short* x, size_t n) noexcept {
 }
 
 int array_sum(const int8_t* x, size_t n) noexcept {
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return 0;
     }
     int sum = 0;
@@ -237,7 +233,7 @@ float array_sum_sisd(const float* x, size_t n) noexcept {
 }
 
 float array_sum(const float* x, size_t n) noexcept {
-    if (x == nullptr) {
+    if (x == nullptr) [[unlikely]] {
         return 0.;
     }
 
@@ -262,6 +258,9 @@ float array_sum(const float* x, size_t n) noexcept {
 
 template <typename T>
 inline T array_max_sisd(const T* arr, size_t n) noexcept {
+    if (arr == nullptr || n < 1) {
+        return T(INT_MIN);
+    }
     T max = arr[0];
     for (size_t i = 0; i < n; ++i) {
         if (arr[i] > max) max = arr[i];
@@ -269,28 +268,19 @@ inline T array_max_sisd(const T* arr, size_t n) noexcept {
     return max;
 }
 int array_max(const int* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT_MIN;
-    }
     return array_max_sisd(arr, n);
 }
 
 short array_max(const short* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT16_MIN;
-    }
     return array_max_sisd(arr, n);
 }
 int8_t array_max(const int8_t* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT8_MIN;
-    }
     return array_max_sisd(arr, n);
 }
 
 MinMax array_min_max(const float* x, size_t n) noexcept {
     MinMax res = {.min = FLT_MAX, .max = FLT_MIN};
-    if (x == nullptr || n < 1) {
+    if (x == nullptr || n < 1) [[unlikely]] {
         return res;
     }
     res.min = x[0];
@@ -305,7 +295,7 @@ MinMax array_min_max(const float* x, size_t n) noexcept {
     return res;
 }
 
-float array_max(const float* arr, size_t n) noexcept {
+float array_max_simd(const float* arr, size_t n) noexcept {
     if (arr == nullptr || n < 1) [[unlikely]] {
         return FLT_MIN;
     }
@@ -339,6 +329,9 @@ float array_max(const float* arr, size_t n) noexcept {
     }
 
     return max;
+}
+float array_max(const float* arr, size_t n) noexcept {
+    return array_max_simd(arr, n);
 }
 
 template <typename T>
@@ -424,32 +417,26 @@ int8_t array_max_sisd(const int8_t* arr, size_t n) {
 
 template <typename T>
 inline T array_min_(const T* arr, size_t n) noexcept {
+    if (arr == nullptr || n < 1) {
+        return T(INT_MAX);
+    }
     T min = arr[0];
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 1; i < n; ++i) {
         if (arr[i] < min) min = arr[i];
     }
     return min;
 }
 int array_min(const int* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT_MAX;
-    }
     return array_min_(arr, n);
 }
 
 short array_min(const short* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT16_MAX;
-    }
     return array_min_(arr, n);
 }
 int8_t array_min(const int8_t* arr, size_t n) noexcept {
-    if (arr == nullptr || n < 1) {
-        return INT8_MAX;
-    }
     return array_min_(arr, n);
 }
-float array_min(const float* arr, size_t n) noexcept {
+float array_min_simd(const float* arr, size_t n) noexcept {
     if (arr == nullptr || n < 1) [[unlikely]] {
         return FLT_MAX;
     }
@@ -484,6 +471,10 @@ float array_min(const float* arr, size_t n) noexcept {
 
     return min;
 }
+float array_min(const float* arr, size_t n) noexcept {
+    return array_min_simd(arr, n);
+}
+
 void fill_random(float* x, size_t n, float min_value, float max_value) noexcept {
     if (x == nullptr || n < 1) {
         return;
@@ -641,6 +632,12 @@ void rmsnorm(float* o, const float* x, const float* w, size_t n) noexcept {
     }
 }
 
+void silu(float* x, size_t n) noexcept {
+    for (size_t i = 0; i < n; ++i) {
+        x[i] = x[i] / (1 + expf(-x[i]));
+    }
+}
+
 void swiglu_sisd(float* xo, const float* xi, size_t n) noexcept {
     for (size_t i = 0; i < n; i++) {
         xo[i] = xo[i] / (1. + expf(-xo[i])) * xi[i];
@@ -780,7 +777,7 @@ void multiply(float* x, int n, const float v) {
 }
 
 void softmax_sisd(float* x, const int n) noexcept {
-    float max_val = array_max_sisd(x, n);
+    float max_val = array_max(x, n);
     float sum = 0.0f;
     for (int i = 0; i < n; i++) {
         x[i] = expf(x[i] - max_val);
@@ -1071,7 +1068,9 @@ void weighted_sum(float* out, const float* matrix, const float* weights, int m, 
         return;
     }
 
-    memcpy(out, matrix, sizeof(float) * n);
+    //memcpy(out, matrix, sizeof(float) * n);
+    memset(out, 0, sizeof(float) * n);
+    printf("memset(out, 0, sizeof(float) * n)\n");
     for (int i = 0; i < m; ++i) {
         if (fabsf(weights[i]) > min_w) {
             add(out, matrix + n * i, weights[i], n);

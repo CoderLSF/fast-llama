@@ -1,7 +1,6 @@
 /***************************************************************************************
-   Author: Liu Shaofeng
-     Date: 2023/10/16
-    Brief: Implements a high-performance thread pool
+ @Author: Liu Shaofeng
+ @Date: 2023/10/16
  ***************************************************************************************/
 
 #pragma once
@@ -290,7 +289,6 @@ protected:
         }
     }
 
-    // Build a hierarchical notifying tree shaped like a snowflake to minimize the latancy for each thread to start to work
     void build_notify_tree(int total_thread_num, NotifyTreeType ntt, int btsize, int max_depth, NotifyGroup& ng) {
         if (ntt == NotifyTreeType::AUTO) {
             ntt = NotifyTreeType::BTREE;
@@ -430,6 +428,18 @@ private:
     std::vector<std::thread>        _threads;
     int                             _num_threads = 0;
     Error                           _err = Error::OK;
+};
+
+static std::string serialize_vector(const auto& vec) {
+    std::string s;
+    for (auto v : vec) {
+        if (s.size() > 0) {
+            s += ", " + std::to_string(v);
+        } else {
+            s = std::to_string(v);
+        }
+    }
+    return s;
 };
 
 } // namespace cpuft

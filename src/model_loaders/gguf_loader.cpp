@@ -1,8 +1,3 @@
-/************************************************************************************************************************
-    Author: Coder LSF(Liu Shaofeng)
-      Date: 2023/11/02
-     Brief: Supports the loading of gguf format of models
- ************************************************************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +25,8 @@
 #include "log.h"
 
 namespace cpuft {
+
+static constexpr uint32_t GGUF_FILE_TAG = 0x46554747;
 
 enum class DataType {
     F32  = 0,
@@ -209,7 +206,7 @@ bool read_array(std::ifstream& file, std::vector<std::string>& arr) {
     return true;
 }
 
-bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) noexcept {
+bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
     std::ifstream file(file_path.data(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         tf_log_error("Failed to open gguf file:%s", file_path.data());
@@ -238,7 +235,7 @@ bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) 
 
     int rope_dimension_count = 0;
 
-    uint32_t alignment = 32;
+    uint32_t alignment    = 32;
     conf.quant_group_size = 32;
     for (int64_t i = 0; i < fh.kv_data_count; ++i) {
         std::string key = read_string(file);
@@ -331,8 +328,11 @@ bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) 
             conf.dim, conf.n_heads, conf.n_kv_heads, rope_dimension_count);
         return false;
     }
-
-    print_summary();
+    if (conf.wtype == WeightType::Q8_0) {
+        conf.quant_type = QuantType::INT8;
+    } else {
+        conf.quant_group_size = 64;
+    }
 
     weights.rope_freq_cis.reset(conf.head_size, conf.max_seq_len);
     if (!weights.build_rope_freq_cis()) {
@@ -340,7 +340,7 @@ bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) 
         return false;
     }
 
-    if (print_detail) tf_log_debug("Loading tensors ...");
+    if (is_debug) tf_log_debug("Loading tensors ...");
 
     std::unordered_map<std::string, TensorInfo> tim;
     tim["token_embd.weight"].pt  = &weights.token_embedding_table;
@@ -435,14 +435,17 @@ bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) 
             return false;
         }
 
+        Tensor t;
+        if (ti.layer >= 0) {
+            t = (*ti.pt)[ti.layer];
+        } else {
+            t = ti.pt->slice();
+        }
+
         std::unique_ptr<char[]> raw_data;
         char* pdata = nullptr;
         if (ti.dtype == DataType::F32) {
-            if (ti.layer <= 0) {
-                pdata = ti.pt->data();
-            } else {
-                pdata = (*ti.pt)[ti.layer].data();
-            }
+            pdata = t.data();
         } else {
             raw_data.reset(new char[tensor_size]);
             if (raw_data == nullptr) {
@@ -458,33 +461,34 @@ bool TransformerModel::load_gguf(std::string_view file_path, bool print_detail) 
             return false;
         }
 
-        float v0 = 0;
         if (ti.dtype == DataType::F32 || ti.dtype == DataType::F16) {
-            v0 = reinterpret_cast<float*>(pdata)[0];
         } else if (ti.dtype == DataType::Q8_0) {
-            auto pd = ti.pt->data();
-            auto qs = ti.pt->scales();
+            char*  pd = t.data();
+            float* qs = t.scales();
             for (size_t i = 0, n = num_items / conf.quant_group_size; i < n; ++i) {
                 qs[i] = float16_to_float32(*reinterpret_cast<uint16_t*>(pdata));
                 memcpy(pd, pdata+2, conf.quant_group_size);
-                if (i == 0) {
-                    v0 = pd[0] * qs[0];
-                }
                 pdata += 2 + conf.quant_group_size;
                 pd += conf.quant_group_size;
             }
         }
 
-        auto ss = ti.pt->shape().serialize();
-        if (print_detail) tf_log_debug("name:%-25s\tlayer:%2d\tshape:%-15s\tdtype:%2d\toffset:%10lu\tval0:%9.3g",
-            ti.name.c_str(), ti.layer, ss.c_str(), int(ti.dtype), offset, v0);
+        if (is_debug) tf_log_debug("name:%-25s\tlayer:%2d\tdtype:%2d\toffset:%10lu\ttensor_shape:%s",
+            ti.name.c_str(), ti.layer, int(ti.dtype), offset, t.shape().serialize().c_str());
         if (offset + tensor_size > file_size) {
             tf_log_error("data exceeds");
         }
     }
 
-    if (print_detail) tf_log_debug("Model loaded");
+    if (is_debug) print_summary();
     return true;
+}
+
+bool TransformerModel::is_valid_gguf_header(std::span<const char> file_header) noexcept {
+    if (file_header.size() < sizeof(GGUF_FILE_TAG)) {
+        return false;
+    }
+    return *reinterpret_cast<const uint32_t*>(file_header.data()) == GGUF_FILE_TAG;
 }
 
 } // namespace cpuft

@@ -1,7 +1,4 @@
-/*************************************************************************************
-     Author: Coder LSF (Liu Shaofeng)
-       Date: 2023/10/16
-**************************************************************************************/
+/* Inference for Llama-2 Transformer model in pure C */
 
 #include "tokenizer.h"
 
@@ -53,60 +50,86 @@ Tokenizer& Tokenizer::operator=(Tokenizer&& other) {
     _name = other._name;
     _text_data.reset(other._text_data.release());
     _text2id = std::move(other._text2id);
+    _conn_tag = other._conn_tag;
     return *this;
 }
 
+bool Tokenizer::set(int vocab_size,
+         std::unique_ptr<Token[]>&& vocab,
+         std::unique_ptr<char[]>&& text_data,
+         std::string_view conn_tag,
+         int special_tokens[int(SpecialTokenType::MAX)]) noexcept {
+    _vocab_size = vocab_size;
+    _vocab.reset(vocab.release());
+    _text_data.reset(text_data.release());
+    _conn_tag = conn_tag;
+    _bos_token_id = special_tokens[int(SpecialTokenType::BOS)];
+    _eos_token_id = special_tokens[int(SpecialTokenType::EOS)];
+    _pad_token_id = special_tokens[int(SpecialTokenType::PAD)];
+    build_text2id_map();
+    return true;
+}
+
 void Tokenizer::set_token_texts(const std::vector<std::string>& texts) {
-    _vocab_size = texts.size();
+    if (_conn_tag.empty()) {
+        _conn_tag = "▁";
+    }
+
     if (_vocab == nullptr) {
-        _vocab.reset(new Token[_vocab_size]);
+        _vocab.reset(new Token[texts.size()]);
+    } else if (_vocab_size != int(texts.size())) {
+        throw std::runtime_error("size of texts does not equal to vocab_size");
     }
-    _max_token_length = 0;
-    size_t text_size = 0;
+    _vocab_size = int(texts.size());
+
+    size_t buf_size = 0;
     for (auto& s : texts) {
-        text_size += (s.length() + 8u) & ~7u;
-        if (s.length() > size_t(_max_token_length)) {
-            _max_token_length = s.length();
+        auto slen = (s.size() + 1 + 7) & ~7u;
+        buf_size += slen;
+        if (s.compare(0, _conn_tag.size(), _conn_tag.data()) == 0) {
+            buf_size += slen;
         }
     }
 
-    std::string_view htag = "▁";
-    _text_data.reset(new char[text_size * 2]);
-    auto p = _text_data.get();
+    _text_data.reset(new char[buf_size]);
+    char* buf = _text_data.get();
     for (int i = 0; i < _vocab_size; ++i) {
-        auto& s = texts[i];
-        memcpy(p, s.c_str(), s.length());
-        p[s.length()] = '\0';
-        _vocab[i].index_text = p;
-        _vocab[i].show_text = p;
-        p += (s.length() + 8) & ~7ul;
-        if (s.compare(0, htag.size(), htag.data()) != 0) {
-            continue;
+        auto& token = _vocab[i];
+        auto& text  = texts[i];
+        token.index_text = buf;
+        memcpy(buf, text.c_str(), text.size());
+        buf[text.size()] = '\0';
+
+        size_t slen = text.size();
+        buf += (slen + 1 + 7) & ~7u;
+
+        if (text.compare(0, _conn_tag.size(), _conn_tag.data()) == 0) {
+            token.show_text = buf;
+            auto p = text.c_str() + _conn_tag.size();
+            slen -= _conn_tag.size();
+            buf[0] = ' ';
+            memcpy(buf+1, p, slen);
+            buf[slen+1] = '\0';
+            buf += (slen + 2 + 7) & ~7u;
+        } else {
+            token.show_text = token.index_text;
         }
-
-        _vocab[i].show_text = p;
-        p[0] = ' ';
-        int slen = int(s.size() - htag.size());
-        memcpy(p+1, _vocab[i].index_text + htag.size(), slen);
-        p[slen + 1] = '\0';
-
-        p += (s.length() + 8) & ~7ul;
     }
 
     build_text2id_map();
 }
 
-void Tokenizer::set_token_types(const std::vector<int>& types) {
+void Tokenizer::set_token_types(std::span<const int> types) {
     _vocab_size = types.size();
     if (_vocab == nullptr) {
         _vocab.reset(new Token[_vocab_size]);
     }
     for (int i = 0; i < _vocab_size; ++i) {
-        _vocab[i].type = types[i];
+        _vocab[i].type = TokenType(types[i]);
     }
 }
 
-void Tokenizer::set_token_scores(const std::vector<float>& scores) {
+void Tokenizer::set_token_scores(std::span<const float> scores) {
     _vocab_size = scores.size();
     if (_vocab == nullptr) {
         _vocab.reset(new Token[_vocab_size]);
@@ -117,12 +140,21 @@ void Tokenizer::set_token_scores(const std::vector<float>& scores) {
 }
 
 void Tokenizer::build_text2id_map() {
+    if (_max_token_length == 0) {
+        for (int i = 0; i < _vocab_size; ++i) {
+            auto& token = _vocab[i];
+            auto slen = int(strlen(token.index_text));
+            if (slen > _max_token_length) {
+                _max_token_length = slen;
+            }
+        }
+    }
+
     _text2id.reserve(size_t(_vocab_size * 3));
     for (int i = 0; i < _vocab_size; ++i) {
         _text2id[_vocab[i].index_text] = i;
     }
-    std::string_view htag = "▁";
-    if (auto it = _text2id.find(htag); it != _text2id.end()) {
+    if (auto it = _text2id.find(_conn_tag); it != _text2id.end()) {
         _underline_id = it->second;
     }
 }

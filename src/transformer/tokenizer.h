@@ -11,11 +11,29 @@
 
 namespace cpuft {
 
+enum class TokenType {
+    UNKNOWN      = 0,
+    NORMAL       = 1,
+    CONTROL      = 2,
+    BYTE         = 3,
+    USER_DEFINED = 4,
+    UNUSED       = 5,
+};
+
 struct Token {
-    char*  index_text;
-    char*  show_text;
-    int    type;
-    float  score;
+    char*       index_text;
+    char*       show_text;
+    TokenType   type;
+    float       score;
+};
+
+enum class SpecialTokenType {
+    NONE = 0,
+    BOS  = 1,
+    EOS  = 2,
+    PAD  = 3,
+
+    MAX  = 8,
 };
 
 class Tokenizer {
@@ -27,6 +45,11 @@ public:
     Tokenizer& operator=(Tokenizer&& other);
 
     bool load(std::string_view path, int vocab_size);
+    bool set(int vocab_size,
+             std::unique_ptr<Token[]>&& vocab,
+             std::unique_ptr<char[]>&& text_data,
+             std::string_view conn_tag,
+             int special_tokens[int(SpecialTokenType::MAX)]) noexcept;
 
     int encode(std::string_view text, std::span<int> output_tokens, bool add_bos=false, bool add_eos=false) const noexcept;
     const char* decode(int token, int prev_token=-1) const noexcept;
@@ -51,9 +74,16 @@ public:
     inline void set_vocab_size(int vocab_size) {
         _vocab_size = vocab_size;
     }
-    void set_token_texts(const std::vector<std::string>& texts);
-    void set_token_types(const std::vector<int>& types);
-    void set_token_scores(const std::vector<float>& scores);
+    void set_token_types (std::span<const int>   types);
+    void set_token_scores(std::span<const float> scores);
+
+    void set_token_texts (const std::vector<std::string>& texts);
+    void set_token_types (const std::vector<int>& types) {
+        return set_token_types({types.data(), types.size()});
+    }
+    void set_token_scores(const std::vector<float>& scores) {
+        return set_token_scores({scores.data(), scores.size()});
+    }
 
     inline void set_bos_token_id(int bos_token_id) noexcept {
         _bos_token_id = bos_token_id;
@@ -89,12 +119,8 @@ private:
     int                           _pad_token_id = 0;
     int                           _underline_id = -1;
     int                           _max_token_length = 0;
+    std::string_view              _conn_tag;
 
-    struct TokenIndex {
-        const char* text;
-        int         id;
-    };
-    std::unique_ptr<TokenIndex[]> _sorted_vocab;
     std::unordered_map<std::string_view, int> _text2id;
     char                          _byte_pieces[512];
 

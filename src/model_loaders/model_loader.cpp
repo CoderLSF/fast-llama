@@ -1,9 +1,3 @@
-/************************************************************************************************************************
-    Author: Coder LSF(Liu Shaofeng)
-      Date: 2023/11/02
-     Brief: Implementation of TranformerModel methods
- ************************************************************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -16,6 +10,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <filesystem>
 
 #include "log.h"
 #include "model_loader.h"
@@ -41,6 +36,53 @@ bool TransformerWeights::build_rope_freq_cis() {
     return true;
 }
 
+ModelFileType TransformerModel::detect_file_type(std::string_view model_path) noexcept {
+    if (!std::filesystem::is_regular_file(model_path)) {
+        tf_log_error("Not a regular file:%s", model_path.data());
+        return ModelFileType::UNKNOWN;
+    }
+    std::ifstream file(model_path.data(), std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        tf_log_error("Cannot open model file:%s", model_path.data());
+        return ModelFileType::UNKNOWN;
+    }
+    file.seekg(0, std::ios::beg);
+
+    char  buffer[128];
+    if (!file.read(buffer, sizeof(buffer))) {
+        tf_log_error("Cannot read model file:%s", model_path.data());
+        return ModelFileType::UNKNOWN;
+    }
+    if (is_valid_flm_header(buffer)) {
+        return ModelFileType::FLM;
+    } else if (is_valid_gguf_header(buffer)) {
+        return ModelFileType::GGUF;
+    } else if (is_valid_llama2c_header(buffer)) {
+        return ModelFileType::LLAMA2C;
+    } else {
+        return ModelFileType::UNKNOWN;
+    }
+}
+
+bool TransformerModel::load(std::string_view checkpoint_path, std::string_view tokenizer_path, ModelFileType mft) {
+    if (mft == ModelFileType::UNKNOWN) {
+        mft = detect_file_type(checkpoint_path);
+    }
+
+    switch (mft) {
+    case ModelFileType::FLM:
+        return load_flm(checkpoint_path);
+    case ModelFileType::GGUF:
+        return load_gguf(checkpoint_path);
+    case ModelFileType::LLAMA2C:
+        return load_llama2c(checkpoint_path, tokenizer_path);
+    default:
+        tf_log_error("Unsupported model file type:%d", int(mft));
+        return false;
+    }
+    return false;
+}
+
 void TransformerModel::print_summary() const noexcept {
     tf_log_debug("\t                   name:\x1b[33m%s\x1b[0m", conf.name.c_str());
     tf_log_debug("\t           architecture:\x1b[33m%d\x1b[0m", int(conf.arch));
@@ -59,6 +101,8 @@ void TransformerModel::print_summary() const noexcept {
     tf_log_debug("\t   rope_dimension_count:\x1b[33m%d\x1b[0m", conf.rope_dimension_count);
     tf_log_debug("\t         rope_freq_base:\x1b[33m%g\x1b[0m", conf.rope_freq_base);
     tf_log_debug("\t layer_norm_rms_epsilon:\x1b[33m%g\x1b[0m", conf.layer_norm_rms_epsilon);
+    tf_log_debug("");
+    tf_log_debug("\t       quant_group_size:\x1b[33m%d\x1b[0m", conf.quant_group_size);
     tf_log_debug("");
     tf_log_debug("\t           bos_token_id:\x1b[33m%d\x1b[0m", tokenizer.bos_token_id());
     tf_log_debug("\t           eos_token_id:\x1b[33m%d\x1b[0m", tokenizer.eos_token_id());
@@ -111,6 +155,22 @@ int main(int argc, const char** argv) {
     std::unique_ptr<char[]> sbuf(new char[2048]);
     auto s = model.tokenizer.decode({tokens.get(), size_t(num_tokens)}, {sbuf.get(), 2048});
     std::cout << "decoded text:\x1b[32m" << s << "\x1b[0m" << std::endl;
+
+    return 0;
+}
+#endif
+
+#ifdef TEST_MODEL_LOADER
+int main(int argc, const char** argv) {
+    using namespace cpuft;
+
+    auto model_path = argv[1];
+
+    TransformerModel tfm(true);
+    bool ret = tfm.load(model_path);
+    if (!ret) {
+        fprintf(stderr, "Failed to load model:%s\n", model_path);
+    }
 
     return 0;
 }

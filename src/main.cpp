@@ -1,7 +1,3 @@
-/************************************************************************************************************************
-    Author: Coder LSF(Liu Shaofeng)
-      Date: 2023/10/21
- ************************************************************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,24 +15,23 @@ enum class Mode {
     TEST,
 };
 struct Arguments {
-    const char*     ckpt_path   = "";
-    const char*     tknr_path   = "";
-    ModelFileType   mft         = ModelFileType::NONE;
-    const char*     prompt      = "";
-    bool            use_numa    = true;
-    int             num_threads = -1;
-    QuantType       qt          = QuantType::INT8;
-    int             max_tokens  = 512;
-    float           topp        = 0.9f;
-    float           temp        = 1.0f;
-    int             batchsize   = 1;
+    const char*     ckpt_path       = "";
+    const char*     tknr_path       = "";
+    ModelFileType   mft             = ModelFileType::UNKNOWN;
+    const char*     prompt          = "";
+    bool            use_numa        = true;
+    int             num_threads     = -1;
+    int             max_tokens      = 512;
+    float           topp            = 0.9f;
+    float           temp            = 1.0f;
+    QuantType       qtype           = QuantType::INT8;
 
-    Mode            mode        = Mode::GEN;
-    int             rounds      = 0;
+    Mode            mode            = Mode::GEN;
+    int             rounds          = 0;
 
-    int             seed        = 128391297;
-    bool            print_detail= false;
-    bool            is_debug    = false;
+    int             seed            = 128391297;
+    bool            print_detail    = false;
+    bool            is_debug        = false;
 
     void print_usage(const char* bin_name);
     void parse(int argc, const char** argv);
@@ -64,11 +59,12 @@ int main(int argc, const char** argv) {
     srand(args.seed);
 
     ParallelTransformer ptf(args.print_detail || args.is_debug);
-    bool ok = ptf.load(args.ckpt_path, args.tknr_path, args.mft, args.qt, args.num_threads, args.use_numa);
+    bool ok = ptf.load(args.ckpt_path, args.tknr_path, args.mft, args.qtype, args.num_threads, args.use_numa);
     if (!ok) {
         fprintf(stderr, "Failed to load model\n");
         exit(1);
     }
+    args.qtype = ptf.get_quant_type();
 
     if (args.print_detail) {
         fprintf(stderr, "Model loaded\n\n");
@@ -121,8 +117,8 @@ int main(int argc, const char** argv) {
     auto first_token_latancy = avg_prompt_latancy / avg_prompt_token_num;
     auto later_token_latancy = avg_output_latancy / (avg_output_token_num - 1);
 
-    printf("num_threads:\x1b[33m%3d\x1b[0m\tquant:\x1b[32m%s\x1b[0m\tuse_numa:\x1b[32m%d\x1b[0m\tprompt_size:%3d\toutput_size:%3d\ttotal_latancy:%5.0fms\tprompt_token_latancy:\x1b[33m%4.2f\x1b[0mms\toutput_token_latancy:\x1b[33m%4.2f\x1b[0mms\tprompt_speed:\x1b[32m%5.1f\x1b[0mtps\toutput_speed:\x1b[32m%5.1f\x1b[0mtps\n",
-            args.num_threads, Tensor::type_to_name(args.qt), int(args.use_numa), int(avg_prompt_token_num), int(avg_output_token_num), avg_prompt_latancy + avg_output_latancy,
+    printf("num_threads:\x1b[33m%2d\x1b[0m\tquant:\x1b[32m%s\x1b[0m\tuse_numa:\x1b[32m%d\x1b[0m\tprompt_size:%3d\toutput_size:%3d\ttotal_latancy:%5.0fms\tprompt_token_latancy:\x1b[33m%4.2f\x1b[0mms\toutput_token_latancy:\x1b[33m%4.2f\x1b[0mms\tprompt_speed:\x1b[32m%5.1f\x1b[0mtps\toutput_speed:\x1b[32m%5.1f\x1b[0mtps\n",
+            args.num_threads, Tensor::type_to_name(args.qtype), int(args.use_numa), int(avg_prompt_token_num), int(avg_output_token_num), avg_prompt_latancy + avg_output_latancy,
             first_token_latancy, later_token_latancy,
             1000. / first_token_latancy, 1000. / later_token_latancy);
     return 0;
@@ -153,14 +149,14 @@ void Arguments::parse(int argc, const char** argv) {
         std::string_view arg = argv[i++];
         if (arg == "-j" || arg == "--threads") {
             num_threads = atoi(argv[i++]);
-        } else if (arg ==  "-b" || arg == "--batchsize") {
-            batchsize = atoi(argv[i++]);
         } else if (arg ==  "-q" || arg == "--quant") {
             auto s = argv[i++];
             if (strcasecmp(s, "int16") == 0) {
-                qt = QuantType::INT16;
+                qtype = QuantType::INT16;
             } else if (strcasecmp(s, "int8") == 0) {
-                qt = QuantType::INT8;
+                qtype = QuantType::INT8;
+            } else if (strcasecmp(s, "int4") == 0) {
+                qtype = QuantType::INT4;
             }
         } else if (arg ==  "--numa") {
             use_numa = true;
@@ -174,13 +170,12 @@ void Arguments::parse(int argc, const char** argv) {
             tknr_path = argv[i++];
         } else if (arg ==  "-f" || arg == "--file-type") {
             auto v = argv[i++];
-            if (strcasecmp(v, "gguf") == 0) {
+            if (strcasecmp(v, "flm") == 0) {
+                mft = ModelFileType::FLM;
+            } else if (strcasecmp(v, "gguf") == 0) {
                 mft = ModelFileType::GGUF;
             } else if (strcasecmp(v, "llama2c") == 0) {
                 mft = ModelFileType::LLAMA2C;
-            } else {
-                fprintf(stderr, "unsupported file type:%s\n", v);
-                exit(-1);
             }
         } else if (arg ==  "-i" || arg == "--prompt") {
             prompt = argv[i++];

@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
-    Author: Coder LSF (Liu Shaofeng)
-      Date: 2023/10/16
+ @author: Liu Shaofeng
+ @date: 2023/10/16
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #pragma once
@@ -72,7 +72,6 @@ private:
     int64_t _time_us;
 };
 
-// A simulator of Golang's defer.
 class Defer {
 public:
     Defer(std::function<void()> cb) : _cb(cb) {}

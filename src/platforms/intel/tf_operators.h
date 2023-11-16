@@ -1,8 +1,7 @@
-/************************************************************************
-     Author: Liu Shaofeng
-       Date: 2023/10/21 08:38
-      Brief: General operators
- ************************************************************************/
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ @Author: Liu Shaofeng
+ @Date: 2023/10/16
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #pragma once
 
@@ -19,6 +18,7 @@ void softmax_sisd(float* x, int size) noexcept;
 void rmsnorm(float* o, const float* x, const float* weight, size_t size) noexcept;
 void rmsnorm_sisd(float* o, const float* x, const float* weight, const int size) noexcept;
 
+void silu(float* x, size_t n) noexcept;
 void swiglu(float* xo, const float* xi, size_t d) noexcept;
 
 void add(float* x1, const float* x2, size_t n) noexcept;
@@ -76,6 +76,7 @@ int    array_sum(const   int*  x, size_t n) noexcept;
 int    array_sum(const short*  x, size_t n) noexcept;
 int    array_sum(const int8_t* x, size_t n) noexcept;
 float  array_max(const float*  x, size_t n) noexcept;
+float  array_max_simd(const float*  x, size_t n) noexcept;
 float  array_min(const float*  x, size_t n) noexcept;
 int    array_max(const int*  x, size_t n) noexcept;
 int    array_min(const int*  x, size_t n) noexcept;

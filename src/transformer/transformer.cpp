@@ -1,6 +1,6 @@
 /*************************************************************************************
-  Author: Coder LSF (Liu Shaofeng)
-    Date: 2023/10/16
+ @Author: Liu Shaofeng
+ @Date:   2023/10/16
 **************************************************************************************/
 
 #include "transformer.h"
@@ -20,19 +20,19 @@
 
 namespace cpuft {
 
-bool ParallelTransformer::load(std::string_view ckpt_path, std::string_view tknr_path, ModelFileType mft, QuantType qt,
-        int num_threads, bool use_numa, int max_batch_size, uint64_t rand_seed) {
+bool ParallelTransformer::load(std::string_view ckpt_path, std::string_view tknr_path, ModelFileType mft,
+        QuantType qt, int num_threads, bool use_numa, int max_batch_size, uint64_t rand_seed) {
 
     _max_batch_size = max_batch_size;
-    _qtype = qt;
 
-    TransformerModel tf;
-    if (!tf.load(ckpt_path, tknr_path, mft, _debug)) {
+    TransformerModel tf(_debug);
+    if (!tf.load(ckpt_path, tknr_path, mft)) {
         return false;
     }
     _tkn = std::move(tf.tokenizer);
-    if (_debug) {
-        tf.print_summary();
+
+    if (tf.conf.quant_type == QuantType::NONE) {
+        tf.conf.quant_type = qt;
     }
 
     _sampler.build(tf.conf.vocab_size, rand_seed);
@@ -100,23 +100,29 @@ bool ParallelTransformer::generate(const std::vector<int>& input_tokens,
 Tensor ParallelTransformer::forward(std::span<const int> tokens, int pos) {
     const int bs = tokens.size();
 
-    auto qtype = _qtype;
+    auto qtype = _tfc.quant_type;
+    auto gsize = _tfc.quant_group_size;
     SequentialAllocator mem(_tfr.buf.data());
-    auto q0 = Tensor::manage(mem, _tfc.dim,  0, qtype);
+    auto q0 = Tensor::manage(mem, _tfc.dim,  0, qtype, gsize);
 
     SequentialAllocator buf(mem.get());
     auto x1 = Tensor::manage(buf, _tfc.dim, bs);
     for (int i = 0; i < bs; ++i) {
-        x1[i].copy_from(_tfw.token_embedding_table[tokens[i]]);
+        auto emb = _tfw.token_embedding_table[tokens[i]];
+        if (emb.is_quantized()) {
+            x1[i].dequantize(emb);
+        } else {
+            x1[i].copy_from(emb);
+        }
     }
     {
         auto x2 = Tensor::manage(buf, _tfc.dim, bs);
-        auto qx = Tensor::manage(buf, _tfc.dim, bs, qtype);
+        auto qx = Tensor::manage(buf, _tfc.dim, bs, qtype, gsize);
         buf.reset(buf.get());
         auto qkv = Tensor::manage(buf, _tfc.dim + _tfc.kv_dim * 2, bs);
         buf.restart();
         auto hd  = Tensor::manage(buf, _tfc.hidden_dim, bs);
-        auto qh  = Tensor::manage(buf, _tfc.hidden_dim, bs, qtype);
+        auto qh  = Tensor::manage(buf, _tfc.hidden_dim, bs, qtype, gsize);
         for (int l = 0; l < _tfc.n_layers; ++l) {
             x2.rmsnorm(x1, _tfw.rms_att_weight[l]);
 
@@ -126,6 +132,9 @@ Tensor ParallelTransformer::forward(std::span<const int> tokens, int pos) {
 
             qx.quantize(x2);
             execute(TaskType::ATTN_O, pos, l, &qx, &x1); // Attn & Add to x1
+            if (bs > 1 && l == _tfc.n_layers - 1) {
+                x1 = x1.slice(x1.rows() - 1, x1.rows());
+            }
 
             x2.rmsnorm(x1, _tfw.rms_ffn_weight[l]);
 
@@ -136,18 +145,60 @@ Tensor ParallelTransformer::forward(std::span<const int> tokens, int pos) {
             execute(TaskType::FFN2, pos, l, &qh, &x1); // FFN2 & Add to x1
         }
     }
-    {
-        auto x = x1[-1];
-        x.rmsnorm(x, _tfw.rms_final_weight);
-        if (_debug) {
-            x.print(std::to_string(pos) + ": outnorm o => ");
-        }
-        q0.quantize(x);
-    }
+
+    auto x = x1[-1];
+    x.rmsnorm(x, _tfw.rms_final_weight);
+    q0.quantize(x);
 
     auto logits = Tensor::manage(mem.get(), _tfc.vocab_size);
     execute(TaskType::CLS, pos, 0, &q0, &logits);
     return logits;
+}
+
+int compare_float(const void* a, const void* b) {
+    if (*reinterpret_cast<const float*>(a) < *reinterpret_cast<const float*>(b)) {
+        return -1;
+    } else if (*reinterpret_cast<const float*>(a) == *reinterpret_cast<const float*>(b)) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+void ParallelTransformer::analyze_weights(const TransformerModel& tf) {
+    auto& tfw = tf.weights;
+    auto  attq = tfw.attn_q[0];
+    Tensor row(attq.columns());
+    Tensor row2(attq.columns());
+
+    float midf = 0.;
+    float maxf = 0.;
+    for (int i = 0; i < attq.rows(); ++i) {
+        row.copy_from(attq[i]);
+        auto [min1, max1] = row.min_max();
+        auto vmax = cpuft::array_max_simd(row.float_data(), row.size());
+        if (vmax != max1) {
+            printf("Found wrong max value:%.6f vs %.6f\n", vmax, max1);
+        }
+
+        midf += (max1 - min1) / 2;
+        maxf += std::max(fabs(max1), fabs(min1));
+        row.add(-min1);
+        row.multiply(1./(max1 - min1));
+
+        if ((i & 7) == 0) {
+            if (i != 0) {
+                auto [vmin, vmax] = row2.min_max();
+                printf("merged min:%6.3f\tmax:%6.3f\n", vmin, vmax);
+            }
+            row2.copy_from(row);
+        } else {
+            row2.add(row);
+        }
+    }
+    midf /= attq.rows();
+    maxf /= attq.rows();
+    printf("midf:%.5f\tmaxf:%.5f\n", midf, maxf);
 }
 
 bool ParallelTransformer::parallel_global_init(
@@ -157,7 +208,7 @@ bool ParallelTransformer::parallel_global_init(
 
     _tfc = tf.conf;
     if (_tfc.n_heads % _tfc.n_kv_heads != 0) {
-        ft_log_error("Unsupported value of n_heads:%d and n_kv_heads:%d", _tfc.n_heads, _tfc.n_kv_heads);
+        fprintf(stderr, "Unsupported value of n_heads:%d and n_kv_heads:%d\n", _tfc.n_heads, _tfc.n_kv_heads);
         return false;
     }
 
@@ -205,7 +256,6 @@ bool ParallelTransformer::parallel_thread_init(
         td.w.cls.set_memory_type(MemoryType::NUMA);
     }
 
-    // Split the weights tensor by lines for paralleling computation in threads
     auto split_rows = [this, &tgis](TaskType tt, int num_rows) -> std::tuple<int, int> {
         const ThreadGroupInfo* tgi = nullptr;
         for (auto& item : tgis) {
@@ -231,7 +281,6 @@ bool ParallelTransformer::parallel_thread_init(
         return res;
     };
 
-    // Copy the data of weights to the tensor for this thread
     auto copy_layers = [](Tensor& t, const Tensor &s, int copied, int offset, int rows) -> int {
         if (offset < 0 || offset >= s.rows() || rows < 1) {
             return 0;
@@ -240,7 +289,7 @@ bool ParallelTransformer::parallel_thread_init(
         for (int i = 0; i < s.layers(); ++i) {
             auto src = s[i].slice(offset, offset+nr);
             auto tgt = t[i].slice(copied, copied+nr);
-            if (tgt.is_quantized()) {
+            if (tgt.is_quantized() && !src.is_quantized()) {
                 tgt.quantize(src);
             } else {
                 src.copy_to(tgt);
@@ -252,7 +301,8 @@ bool ParallelTransformer::parallel_thread_init(
     auto& tfw = tf.weights;
     if (auto [offset, rows] = split_rows(TaskType::QKV, _tfc.dim + _tfc.kv_dim * 2); rows > 0) {
         td.c.qkv_offset = offset;
-        td.w.qkv.reset(tfw.attn_q.columns(), rows, _tfc.n_layers, _qtype);
+        auto qtype = tfw.attn_q.is_quantized() ? tfw.attn_q.quant_type() : _tfc.quant_type;
+        td.w.qkv.reset(tfw.attn_q.columns(), rows, _tfc.n_layers, qtype, _tfc.quant_group_size);
         if (!td.w.qkv.reserve_memory()) {
             ft_log_error("Out of memory for QKV weights of thread:%d", tgis[0].thread_id);
             return false;
@@ -264,7 +314,8 @@ bool ParallelTransformer::parallel_thread_init(
     }
     if (auto [offset, rows] = split_rows(TaskType::ATTN_O, _tfc.dim); rows > 0) {
         td.c.attn_o_offset = offset;
-        td.w.attn_o.reset(tfw.attn_o.columns(), rows, _tfc.n_layers, _qtype);
+        auto qtype = tfw.attn_o.is_quantized() ? tfw.attn_o.quant_type() : _tfc.quant_type;
+        td.w.attn_o.reset(tfw.attn_o.columns(), rows, _tfc.n_layers, qtype, _tfc.quant_group_size);
         if (!td.w.attn_o.reserve_memory()) {
             ft_log_error("Out of memory for WO weights of thread:%d", tgis[0].thread_id);
             return false;
@@ -273,8 +324,9 @@ bool ParallelTransformer::parallel_thread_init(
     }
     if (auto [offset, rows] = split_rows(TaskType::FFN13, _tfc.hidden_dim); rows > 0) {
         td.c.ffn_13_offset = offset;
-        td.w.ffn_1.reset(tfw.ffn_1.columns(), rows, _tfc.n_layers, _qtype);
-        td.w.ffn_3.reset(tfw.ffn_3.columns(), rows, _tfc.n_layers, _qtype);
+        auto qtype = tfw.ffn_1.is_quantized() ? tfw.ffn_1.quant_type() : _tfc.quant_type;
+        td.w.ffn_1.reset(tfw.ffn_1.columns(), rows, _tfc.n_layers, qtype, _tfc.quant_group_size);
+        td.w.ffn_3.reset(tfw.ffn_3.columns(), rows, _tfc.n_layers, qtype, _tfc.quant_group_size);
         if (!td.w.ffn_1.reserve_memory() || !td.w.ffn_3.reserve_memory()) {
             ft_log_error("Out of memory for W1 and W3 weights of thread:%d", tgis[0].thread_id);
             return false;
@@ -284,7 +336,8 @@ bool ParallelTransformer::parallel_thread_init(
     }
     if (auto [offset, rows] = split_rows(TaskType::FFN2, _tfc.dim); rows > 0) {
         td.c.ffn_2_offset = offset;
-        td.w.ffn_2.reset(tfw.ffn_2.columns(), rows, _tfc.n_layers, _qtype);
+        auto qtype = tfw.ffn_2.is_quantized() ? tfw.ffn_2.quant_type() : _tfc.quant_type;
+        td.w.ffn_2.reset(tfw.ffn_2.columns(), rows, _tfc.n_layers, qtype, _tfc.quant_group_size);
         if (!td.w.ffn_2.reserve_memory()) {
             ft_log_error("Out of memory for FFN2 weights of thread:%d", tgis[0].thread_id);
             return false;
@@ -293,12 +346,17 @@ bool ParallelTransformer::parallel_thread_init(
     }
     if (auto [offset, rows] = split_rows(TaskType::CLS, _tfc.vocab_size); rows > 0) {
         td.c.cls_offset = offset;
-        td.w.cls.reset(tfw.classifier.columns(), rows, _qtype);
+        auto qtype = tfw.classifier.is_quantized() ? tfw.classifier.quant_type() : _tfc.quant_type;
+        td.w.cls.reset(tfw.classifier.columns(), rows, qtype, _tfc.quant_group_size);
         if (!td.w.cls.reserve_memory()) {
             ft_log_error("Out of memory for WCLS weights of thread:%d", tgis[0].thread_id);
             return false;
         }
-        td.w.cls.quantize(tfw.classifier.slice(offset, offset+rows));
+        if (tfw.classifier.is_quantized()) {
+            td.w.cls.copy_from(tfw.classifier.slice(offset, offset+rows));
+        } else {
+            td.w.cls.quantize(tfw.classifier.slice(offset, offset+rows));
+        }
     }
     if (auto [offset, heads] = split_rows(TaskType::ATTN, _tfc.n_kv_heads); heads > 0) {
         td.c.kv_heads_offset = offset;
@@ -383,7 +441,7 @@ void ParallelTransformer::execute_attn(ThreadData& td, Task t, const ThreadGroup
                 att[j][i].softmax(pos+i+1);
             }
         }
-        vl.weighted_sum(att, o, 0, 1e-25);
+        vl.weighted_sum(att, o, 0, 1e-15);
         for (int i = 0; i < hgs; ++i) {
             auto t = o[i];
             io.copy_from(t, _tfc.head_size * ((td.c.kv_heads_offset + ihead) * hgs + i));

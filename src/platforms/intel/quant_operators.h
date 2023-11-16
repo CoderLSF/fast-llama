@@ -64,6 +64,7 @@ float min(QuantType qt, const void* qx, const float* qs, size_t n, int group_siz
 float max(QuantType qt, const void* qx, const float* qs, size_t n, int group_size) noexcept;
 
 void add(QuantType qt, void* qx1, float* scales1, const void* qx2, const float* scales2, size_t n, int group_size) noexcept;
+void add(QuantType qt, void* qx, float* scales, float v, size_t n, int group_size) noexcept;
 void mul(QuantType qt, void* qx, float factor, float* qs, size_t n, int group_size) noexcept;
 
 float dot_product(QuantType qt, const void* qx1, const float* qs1, const void* qx2, const float* qs2, size_t n, int gs) noexcept;

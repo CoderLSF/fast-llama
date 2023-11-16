@@ -13,6 +13,8 @@
 #include <tuple>
 #include <vector>
 #include <iostream>
+#include <fstream>
+#include <algorithm>
 
 #include "tf_operators.h"
 #include "quant_operators.h"
@@ -45,7 +47,7 @@ struct TensorShape {
 };
 
 class Tensor {
-    static constexpr int QUANT_GROUP_SIZE = 64;
+    static constexpr int QUANT_GROUP_SIZE = 32;
 public:
     /*********************************< constructors and destructors >********************************/
     ~Tensor() noexcept { release(); }
@@ -113,14 +115,8 @@ public:
         return reset(columns, 0, 0, qt, quant_group_size);
     }
 
-    // @brief: Change the shape while keeping the total size unchanged
-    // @param columns: new value of columns
-    // @param rows:    new value of columns. -1 for automatically calculation.
-    // @param layers:  new value of layers. -1 for automatically calculation
-    // @return: the tensor of itself
-    Tensor& reshape(int columns, int rows=-1, int layers=-1);
+    bool read_data(std::ifstream& file, ssize_t data_offset=-1, ssize_t scales_offset=-1) noexcept;
 
-    // 截取当前tensor的片段生成一个新的tensor，新tensor和当前tensor共享内存
     Tensor slice(int start, int end) const noexcept {
         int layers = 0;
         int rows = 0;
@@ -156,7 +152,7 @@ public:
         t.manage(get_data(offset), _scales == nullptr ? nullptr : &_scales[offset/_qgsize]);
         return t;
     }
-    Tensor slice(int end) const noexcept {
+    Tensor slice(int end=-1) const noexcept {
         return slice(0, end);
     }
     Tensor row_slice(int row, int layer=0) const noexcept {
@@ -243,7 +239,10 @@ public:
     void matmul(const Tensor& b, Tensor& out, int layer=0) const;
     void softmax(int columns=-1) noexcept;
     void rmsnorm(const Tensor& x, const Tensor& w);
+    void silu();
     void swiglu(const Tensor& x);
+    // apply swiglu on left half and right half of each row
+    void  inner_swiglu();
     void rope(int pos, int head_size) noexcept {
         if (_data != nullptr && !is_quantized()) {
             cpuft::rope(float_data(), size(), pos, head_size);
@@ -271,11 +270,10 @@ public:
         }
     }
 
-    // apply swiglu on left half and right half of each row
-    void  inner_swiglu();
     void  weighted_sum(std::span<const float> weights, Tensor& out, int layer=0, float weight_threshold=0.) const;
     void  weighted_sum(const Tensor& weights, Tensor& out, int layer=0, float weight_threshold=0.) const;
     void  add(const Tensor& b, int this_column_offset=0) noexcept;
+    void  add(float value) noexcept;
     void  multiply(float v) noexcept {
         if (_data != nullptr) {
             quant::mul(QuantType(_qtype), _data, v, _scales, size(), _qgsize);
@@ -310,10 +308,17 @@ public:
     float min(int dim3_index, int dim2_index) const noexcept {
         return min_(size_t(_columns) * (_rows * dim3_index + dim2_index), _columns);
     }
+    std::pair<float, float> min_max() const noexcept {
+        return {min(), max()};
+    }
+    void sort() noexcept {
+        std::span<float> arr{float_data(), size()};
+        std::sort(arr.begin(), arr.end());
+    }
 
     /******************************************< display >*****************************************/
-    std::string display_string(bool show_attributes=false, bool pretty_print=false, int display_num=9) const noexcept; 
-    void print(std::string_view prefix="", bool show_attributes=false, bool pretty_print=false, int display_num=9) const noexcept; 
+    std::string display_string(bool show_attributes=false, bool pretty_print=false, int display_num=9, int precision=-1, int column_start=0, int column_end=-1) const noexcept; 
+    void print(std::string_view prefix="", bool show_attributes=false, bool pretty_print=false, int display_num=9, int precision=-1, int column_start=0, int column_end=-1) const noexcept; 
     friend std::ostream& operator<<(std::ostream& os, const Tensor& t) {
         os << t.display_string();
         return os;
@@ -326,6 +331,7 @@ public:
     TensorShape shape() const noexcept {
         return {_columns, _rows, _layers};
     }
+    Tensor& reshape(int columns, int rows=-1, int layers=-1);
 
     int columns()    const noexcept { return _columns; }
     int rows()       const noexcept { return _rows; }
@@ -447,7 +453,6 @@ public:
         switch (mt) {
             case MemoryType::NONE:      return "NONE";
             case MemoryType::NORMAL:    return "NORMAL";
-            case MemoryType::NUMA:      return "NUMA";
             case MemoryType::MANAGED:   return "MANAGED";
             case MemoryType::GPU:       return "GPU";
             default: break;
@@ -529,7 +534,7 @@ private:
     int         _rows    = 0; // 为0表示此维度不启用
     int         _layers  = 0; // 为0表示此维度不启用
 
-    uint16_t    _qgsize = 64; // 量化的窗口大小
+    uint16_t    _qgsize = QUANT_GROUP_SIZE; // 量化的窗口大小
     uint8_t     _qtype  = uint8_t(QuantType::NONE);
     uint8_t     _mtype  = uint8_t(MemoryType::NORMAL);
 };

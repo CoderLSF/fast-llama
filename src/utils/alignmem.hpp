@@ -1,6 +1,6 @@
 /***************************************************************************************
-   Author: Coder LSF (Liu Shaofeng)
-     Date: 2023/10/16
+ @Author: Liu Shaofeng
+ @Date: 2023/10/16
  ***************************************************************************************/
 
 #pragma once
@@ -13,7 +13,7 @@
 
 namespace cpuft {
 
-template <typename T, size_t ALIGN_SIZE=64>
+template <typename T, size_t ALIGN_SIZE=1>
 struct AlignedMemory {
 public:
     AlignedMemory() {}
@@ -51,29 +51,29 @@ public:
         free();
     }
 
-    T* get() const noexcept {
+    T* get() const {
         return ptr_;
     }
-    T* data() const noexcept {
+    T* data() const {
         return ptr_;
     }
-    operator T*() const noexcept {
+    operator T*() const {
         return ptr_;
     }
-    T& operator[](size_t i) const noexcept {
+    T& operator[](size_t i) const {
         return ptr_[i];
     }
-    T* operator->() const noexcept {
+    T* operator->() const {
         return ptr_;
     }
-    bool empty() const noexcept {
+    bool empty() const {
         return ptr_ == nullptr;
     }
-    size_t size() const noexcept {
+    size_t size() const {
         return num_elements_;
     }
 
-    bool alloc(size_t num_elements, bool use_numa=true) noexcept {
+    bool alloc(size_t num_elements, bool use_numa=true) {
         free();
         use_numa_ = use_numa;
         if (num_elements <= 0 || ((unsigned)ALIGN_SIZE & ((unsigned)ALIGN_SIZE - 1)) != 0) {
@@ -106,7 +106,7 @@ public:
         return true;
     }
 
-    void free() noexcept {
+    void free() {
         if (ptr_ == nullptr) {
             return;
         }

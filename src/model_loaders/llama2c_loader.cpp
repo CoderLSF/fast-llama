@@ -1,8 +1,4 @@
-/************************************************************************************************************************
-    Author: Coder LSF(Liu Shaofeng)
-      Date: 2023/11/02
-     Brief: Supports the loading of llama2.c format of models
- ************************************************************************************************************************/
+/* Inference for Llama-2 Transformer model in pure C */
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -20,7 +16,28 @@
 
 namespace cpuft {
 
-bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view tokenizer_path, bool print_detail) noexcept {
+struct Llama2cConfig {
+    int dim;         // transformer dimension
+    int hidden_dim;  // for ffn layers
+    int n_layers;    // number of layers
+    int n_heads;     // number of query heads
+    int n_kv_heads;  // number of key/value heads (can be < query heads because of multiquery)
+    int vocab_size;  // vocabulary size, usually 256 (byte-level)
+    int max_seq_len; // max sequence length
+};
+
+bool TransformerModel::is_valid_llama2c_header(std::span<const char> file_header_data) noexcept {
+    if (file_header_data.size() < sizeof(Llama2cConfig)) {
+        return false;
+    }
+    auto& conf = *reinterpret_cast<const Llama2cConfig*>(file_header_data.data());
+    return conf.dim >= 512 && conf.dim <= 64000 && conf.hidden_dim >= 512 && conf.hidden_dim <= 64000
+            && conf.n_layers > 0 && conf.n_layers < 512 && conf.n_heads >= 4 && conf.n_heads <= 1024
+            && conf.n_kv_heads >= 1 && conf.n_kv_heads <= conf.n_heads
+            && conf.vocab_size >= 1000 && conf.vocab_size < (256 << 10);
+}
+
+bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view tokenizer_path) noexcept {
     std::ifstream file(ckpt_path.data(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         tf_log_error("Failed to open model file:%s", ckpt_path.data());
@@ -29,17 +46,8 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
     file.tellg();
     file.seekg(0, std::ios::beg);
 
-    struct {
-        int dim;         // transformer dimension
-        int hidden_dim;  // for ffn layers
-        int n_layers;    // number of layers
-        int n_heads;     // number of query heads
-        int n_kv_heads;  // number of key/value heads (can be < query heads because of multiquery)
-        int vocab_size;  // vocabulary size, usually 256 (byte-level)
-        int max_seq_len; // max sequence length
-    } raw_conf;
-
-    if (print_detail) tf_log_debug("Loading model configurations ...");
+    Llama2cConfig raw_conf;
+    if (is_debug) tf_log_debug("Loading model configurations ...");
     if (!file.read(reinterpret_cast<char*>(&raw_conf), sizeof(raw_conf))) {
         tf_log_error("Reading model file error:%s", ckpt_path.data());
         return false;
@@ -61,13 +69,13 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
 
     print_summary();
 
-    if (print_detail) tf_log_debug("Loading tokenizer from:[%s] ...", tokenizer_path.data());
+    if (is_debug) tf_log_debug("Loading tokenizer from:[%s] ...", tokenizer_path.data());
     if (!tokenizer.load(tokenizer_path, conf.vocab_size)) {
         tf_log_error("Failed to load tokenizer from:%s", tokenizer_path.data());
         return false;
     }
 
-    if (print_detail) tf_log_debug("Loading model weights from:[%s] ...", ckpt_path.data());
+    if (is_debug) tf_log_debug("Loading model weights from:[%s] ...", ckpt_path.data());
 
     weights.token_embedding_table.reset(conf.dim, conf.vocab_size);
 
@@ -171,7 +179,7 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
         return false;
     }
 
-    if (print_detail) tf_log_debug("Model loaded");
+    if (is_debug) tf_log_debug("Model loaded");
     return true;
 }
 
