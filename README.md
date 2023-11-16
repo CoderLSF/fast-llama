@@ -8,12 +8,12 @@ fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (*
 
 | Feature Name | Current Support | Future Suport |
 | --- | --- | --- |
-| Model Types | ✅LLaMA (Only Chinese-LLaMA2 1.3B & 7B are verified currently) | LLM/Baichuan, StableDiffusion |
-| Quantization | ✅INT16, ✅INT8 | INT4 |
-| Model Format | ✅HuggingFace, ✅gguf(by llama.cpp), ✅flm | |
-| System | ✅Linux | Windows, Macbook |
-| CPU/GPU | ✅Intel CPU with AVX-512 | All x86/64, ARM, Apple Mx, GPU, CPU+GPU |
-| Architectures | ✅UMA, ✅NUMA | |
+| **Model Types** | ✅LLaMA (Only Chinese-LLaMA2 1.3B & 7B are verified currently) | LLM/Baichuan, StableDiffusion |
+| **Quantization** | ✅INT16, ✅INT8 | INT4 |
+| **Model Formats** | ✅HuggingFace, ✅gguf(by llama.cpp), ✅flm | |
+| **Systems** | ✅Linux | Windows, Macbook |
+| **CPU/GPU** | ✅Intel CPU with AVX-512 | All x86/64, ARM, Apple Mx, GPU, CPU+GPU |
+| **Architectures** | ✅UMA, ✅NUMA | |
 
 ## **Advantages**
 Why use Fast-LLaMA?
