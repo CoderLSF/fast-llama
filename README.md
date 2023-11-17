@@ -17,7 +17,7 @@ fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (*
 | **Architectures** | ✅UMA, ✅NUMA | |
 
 ## **Advantages**
-Why use Fast-LLaMA?
+Why you should use Fast-LLaMA?
 - **`Fast`**
    - Extremely fast on CPU. `Faster` than any other engines on Github including [llama.cpp](https://github.com/ggerganov/llama.cpp) (**`3 times`** faster than llama.cpp).
 - **`Simple`**
