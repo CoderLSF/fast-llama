@@ -97,9 +97,9 @@ Below are some incomplete test results
 
 | Model | Model Size | OutputSpeed/`8` threads | OutputSpeed/`28` threads | OutputSpeed/`56` threads |
 | :--: | --: | --: | --: | --: |
-| stories110M | 110M | `364`tps | `645`tps | `668`tps |
-| Chinese-LLaMA-1.3B | 1.3B | `57`tps | `172`tps | `227`tps |
-| Chinese-LLaMA-7B | 7B | `8`tps | `25`tps | `34`tps |
+| stories110M | 110M | `237`tps | `400`tps | `440`tps |
+| Chinese-LLaMA-1.3B | 1.3B | `38.9`tps | `127`tps | `155`tps |
+| Chinese-LLaMA-7B | 7B | `7.4`tps | `17.4`tps | `23.5`tps |
 
 * Note: tps = tokens / second
 
