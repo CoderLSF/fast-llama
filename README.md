@@ -108,6 +108,7 @@ Below are some incomplete test results
 - **Testing Prompt**: "That was a long long story happened in the ancient Europe. It was about a brave boy name Oliver. Oliver lived in a small village among many big moutains. It was a beautiful village."
 - **Quantization**: `int8`
 - **NUMA**: `2` sockets
+   - **Note**: Make sure that NUMA is truely available if you expect to accelerate with NUMA)
 - **System**: (`uname -a`)Linux coderlsf 5.15.0-72-generic #79-Ubuntu SMP Wed Apr 19 08:22:18 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
 - **CPU**: `56` physical cores, `AVX-512`
 
