@@ -64,4 +64,33 @@ float float16_to_float32(uint16_t f16) {
     return res.f32;
 }
 
+void print_vector(std::string_view title, std::span<const int> vec) {
+    int dw = 1;
+    if (!vec.empty()) {
+        int min = vec[0];
+        int max = vec[0];
+        for (auto v : vec) {
+            if (v > max) {
+                max = v;
+            } else if (v < min) {
+                min = v;
+            }
+        }
+        for (int v = 10; v <= max; v *= 10, ++dw);
+        if (min < 0 && -min > (max*10)/10) {
+            dw = 2;
+            for (int v = -10; v >= min; v *= 10, ++dw);
+        }
+    }
+
+    std::cout << title << "[";
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << std::setw(dw) << vec[i];
+    }
+    std::cout << "]" << std::endl;
+}
+
 } // namespace cpuft

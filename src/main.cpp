@@ -1,13 +1,16 @@
 
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <iostream>
+#include <iomanip>
 #include <string_view>
 
 #include "transformer.h"
 #include "utility.h"
 #include "console.h"
 #include "simd.h"
+#include "numa_utility.h"
 
 using namespace cpuft;
 enum class Mode {
@@ -17,32 +20,41 @@ enum class Mode {
     TEST,
 };
 struct Arguments {
-    const char*     ckpt_path       = "";
-    const char*     tknr_path       = "";
-    ModelFileType   mft             = ModelFileType::UNKNOWN;
-    const char*     prompt          = "";
-    bool            use_numa        = true;
-    int             num_threads     = -1;
-    int             max_tokens      = 512;
-    float           topp            = 0.9f;
-    float           temp            = 1.0f;
-    QuantType       qtype           = QuantType::INT8;
+    std::string_view    ckpt_path       = "";
+    std::string_view    tknr_path       = "";
+    std::string_view    encode_str      = "";
+    std::string_view    decode_str      = "";
+    ModelFileType       mft             = ModelFileType::UNKNOWN;
+    const char*         prompt          = "";
+    bool                use_numa        = is_numa_available();
+    int                 num_threads     = -1;
+    int                 max_tokens      = 512;
+    float               topp            = 0.9f;
+    float               temp            = 1.0f;
+    QuantType           qtype           = QuantType::INT8;
 
-    Mode            mode            = Mode::GEN;
-    int             rounds          = 0;
+    Mode                mode            = Mode::GEN;
+    int                 rounds          = 0;
 
-    int             max_batch_size  = 128;
-    int             seed            = 128391297;
-    bool            print_detail    = false;
-    bool            is_debug        = false;
+    int                 max_batch_size  = 128;
+    int                 seed            = 128391297;
+    bool                print_detail    = false;
+    bool                is_debug        = false;
 
     void print_usage(const char* bin_name);
     void parse(int argc, const char** argv);
 };
 
+int encode_decode(const Arguments& args);
+
 int main(int argc, const char** argv) {
     Arguments args;
     args.parse(argc, argv);
+
+    if (args.encode_str.size() > 0 || args.decode_str.size() > 0) {
+        int ret = encode_decode(args);
+        exit(ret);
+    }
 
     if (args.prompt == nullptr || args.prompt[0] == '\0') {
         args.prompt = "That was a long long story happened in the ancient Europe. It was about a brave boy name Oliver. Oliver lived in a small village among many big moutains. It was a beautiful village.";
@@ -50,12 +62,12 @@ int main(int argc, const char** argv) {
 
     Console con;
     if (args.print_detail) {
-        fprintf(stderr, "num_threads:%s%d%s\n", con.yellow(), args.num_threads, con.endtag());
-        fprintf(stderr, "   use_numa:%s%d%s\n", con.yellow(), args.use_numa,    con.endtag());
-        fprintf(stderr, "  ckpt_path:%s%s%s\n", con.yellow(), args.ckpt_path,   con.endtag());
-        fprintf(stderr, "  tknr_path:%s%s%s\n", con.yellow(), args.tknr_path,   con.endtag());
-        fprintf(stderr, "      top_p:%s%g%s\n", con.yellow(), args.topp,        con.endtag());
-        fprintf(stderr, "temperature:%s%g%s\n", con.yellow(), args.temp,        con.endtag());
+        fprintf(stderr, "num_threads:%s%d%s\n", con.yellow(), args.num_threads,     con.endtag());
+        fprintf(stderr, "   use_numa:%s%d%s\n", con.yellow(), args.use_numa,        con.endtag());
+        fprintf(stderr, "  ckpt_path:%s%s%s\n", con.yellow(), args.ckpt_path.data(),con.endtag());
+        fprintf(stderr, "  tknr_path:%s%s%s\n", con.yellow(), args.tknr_path.data(),con.endtag());
+        fprintf(stderr, "      top_p:%s%g%s\n", con.yellow(), args.topp,            con.endtag());
+        fprintf(stderr, "temperature:%s%g%s\n", con.yellow(), args.temp,            con.endtag());
         //fprintf(stderr, "     prompt:\x1b[33m%s\x1b[0m\n", args.prompt);
         fprintf(stderr, "\n");
     }
@@ -151,6 +163,8 @@ void Arguments::print_usage(const char* bin_name) {
     fprintf(stderr, "   --topp,-p         <float>     the value for top-p sampling, [0, 1]\n");
     fprintf(stderr, "   --quant,-q        <string>    quantization type, can be INT8, INT16\n");
     fprintf(stderr, "   --threads,-j      <number>    the number of threads for parallelly computing\n");
+    fprintf(stderr, "   --encode,-e       <string>    encode the input string into tokens\n");
+    fprintf(stderr, "   --decode,-d       <string>    decode the input tokens to text\n");
     fprintf(stderr, "   --help,-h                     print this message\n");
 }
 
@@ -189,6 +203,10 @@ void Arguments::parse(int argc, const char** argv) {
             }
         } else if (arg ==  "-i" || arg == "--prompt") {
             prompt = argv[i++];
+        } else if (arg ==  "-e" || arg == "--encode") {
+            encode_str = argv[i++];
+        } else if (arg ==  "-d" || arg == "--decode") {
+            decode_str = argv[i++];
         } else if (arg == "-n" || arg == "--max-new-tokens") {
             max_tokens = atoi(argv[i++]);
         } else if (arg ==  "-p" || arg == "--topp") {
@@ -223,5 +241,47 @@ void Arguments::parse(int argc, const char** argv) {
     if (rounds < 1) {
         rounds = mode == Mode::TEST ? 16 : 1;
     }
+}
+
+int encode_decode(const Arguments& args) {
+    TransformerModel tfm;
+    if (!tfm.load(args.ckpt_path, args.tknr_path, ModelFileType::UNKNOWN, true)) {
+        fprintf(stderr, "Failed to load model\n");
+        return -1;
+    }
+
+    if (args.decode_str.size() > 0) {
+        auto slen = args.decode_str.size();
+        std::unique_ptr<char[]> sbuf(new char[slen+1]);
+        memcpy(sbuf.get(), args.decode_str.data(), slen+1);
+
+        std::vector<int> tokens;
+        auto s = sbuf.get();
+        auto e = s + slen;
+        for (size_t i = 0; s <= e; ) {
+            if (*s == '[' || *s == ',' || isspace(*s)) {
+                i = 0;
+                ++s;
+            } else if (s[i] == '-' || (s[i] >= '0' && s[i] <= '9')) {
+                ++i;
+            } else if (i > 0) {
+                s[i] = '\0';
+                tokens.push_back(atoi(s));
+                s += i + 1;
+                i = 0;
+            } else {
+                ++s;
+            }
+        }
+        std::string text = tfm.tokenizer.decode(tokens);
+        print_vector("tokens: ", {tokens.data(), tokens.size()});
+        std::cout << "  text: " << text << std::endl;
+    } else {
+        auto text = args.encode_str;
+        auto tokens = tfm.tokenizer.encode(text);
+        std::cout << "  text: " << text << std::endl;
+        print_vector("tokens: ", {tokens.data(), tokens.size()});
+    }
+    return 0;
 }
 

@@ -78,7 +78,10 @@ public:
     bool load(std::string_view ckpt_path, std::string_view tknr_path, ModelFileType mft, QuantType qt=QuantType::INT8,
             int num_threads=-1, bool use_numa=true, int max_batch_size=64, uint64_t rand_seed=0);
 
-    std::vector<int> encode(const char* prompt);
+    std::vector<int> encode(const char* prompt) const noexcept;
+    std::string decode(const std::span<const int> tokens) const noexcept {
+        return _tkn.decode(tokens);
+    }
 
     bool generate(const char* prompt,
             std::function<bool(const char* text, int num_input_tokens, int num_output_tokens, bool ended)> cb,

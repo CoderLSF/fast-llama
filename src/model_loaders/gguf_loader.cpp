@@ -206,7 +206,7 @@ bool read_array(std::ifstream& file, std::vector<std::string>& arr) {
     return true;
 }
 
-bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
+bool TransformerModel::load_gguf(std::string_view file_path, bool tokenizer_only) noexcept {
     std::ifstream file(file_path.data(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         tf_log_error("Failed to open gguf file:%s", file_path.data());
@@ -315,6 +315,7 @@ bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
                 return false;
             }
             tokenizer.set_token_types(arr);
+            tokenizer.set_vocab_type(VocabType::SPM);
         } else  {
             tf_log_error("Unknown key:\x1b[31m%s\x1b[0m", key.c_str());
             return false;
@@ -340,147 +341,149 @@ bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
         return false;
     }
 
-    if (is_debug) tf_log_debug("Loading tensors ...");
+    if (!tokenizer_only) {
+        if (is_debug) tf_log_debug("Loading tensors ...");
 
-    std::unordered_map<std::string, TensorInfo> tim;
-    tim["token_embd.weight"].pt  = &weights.token_embedding_table;
-    tim["output_norm.weight"].pt = &weights.out_norm;
-    tim["output.weight"].pt      = &weights.classifier;
+        std::unordered_map<std::string, TensorInfo> tim;
+        tim["token_embd.weight"].pt  = &weights.token_embedding_table;
+        tim["output_norm.weight"].pt = &weights.out_norm;
+        tim["output.weight"].pt      = &weights.classifier;
 
-    for (int i = 0; i < conf.n_layers; ++i) {
-        std::string ns = std::string("blk.") + std::to_string(i) + ".";
-        tim[ns + "attn_q.weight"]     .pt    = &weights.attn_q;
-        tim[ns + "attn_k.weight"]     .pt    = &weights.attn_k;
-        tim[ns + "attn_v.weight"]     .pt    = &weights.attn_v;
-        tim[ns + "attn_output.weight"].pt    = &weights.attn_o;
-        tim[ns + "attn_norm.weight"]  .pt    = &weights.attn_norm;
-        tim[ns + "ffn_gate.weight"]   .pt    = &weights.ffn_1;
-        tim[ns + "ffn_down.weight"]   .pt    = &weights.ffn_2;
-        tim[ns + "ffn_up.weight"]     .pt    = &weights.ffn_3;
-        tim[ns + "ffn_norm.weight"]   .pt    = &weights.ffn_norm;
+        for (int i = 0; i < conf.n_layers; ++i) {
+            std::string ns = std::string("blk.") + std::to_string(i) + ".";
+            tim[ns + "attn_q.weight"]     .pt    = &weights.attn_q;
+            tim[ns + "attn_k.weight"]     .pt    = &weights.attn_k;
+            tim[ns + "attn_v.weight"]     .pt    = &weights.attn_v;
+            tim[ns + "attn_output.weight"].pt    = &weights.attn_o;
+            tim[ns + "attn_norm.weight"]  .pt    = &weights.attn_norm;
+            tim[ns + "ffn_gate.weight"]   .pt    = &weights.ffn_1;
+            tim[ns + "ffn_down.weight"]   .pt    = &weights.ffn_2;
+            tim[ns + "ffn_up.weight"]     .pt    = &weights.ffn_3;
+            tim[ns + "ffn_norm.weight"]   .pt    = &weights.ffn_norm;
 
-        tim[ns + "attn_q.weight"]     .layer = i;
-        tim[ns + "attn_k.weight"]     .layer = i;
-        tim[ns + "attn_v.weight"]     .layer = i;
-        tim[ns + "attn_output.weight"].layer = i;
-        tim[ns + "attn_norm.weight"]  .layer = i;
-        tim[ns + "ffn_gate.weight"]   .layer = i;
-        tim[ns + "ffn_up.weight"]     .layer = i;
-        tim[ns + "ffn_down.weight"]   .layer = i;
-        tim[ns + "ffn_norm.weight"]   .layer = i;
-    }
-
-    std::vector<TensorInfo*> tis;
-    for (int64_t i = 0; i < fh.ti_data_count; ++i) {
-        std::string name = read_string(file);
-        if (tim.find(name) == tim.end()) {
-            tf_log_error("Invalid tensor name:%s", name.c_str());
-            return false;
+            tim[ns + "attn_q.weight"]     .layer = i;
+            tim[ns + "attn_k.weight"]     .layer = i;
+            tim[ns + "attn_v.weight"]     .layer = i;
+            tim[ns + "attn_output.weight"].layer = i;
+            tim[ns + "attn_norm.weight"]  .layer = i;
+            tim[ns + "ffn_gate.weight"]   .layer = i;
+            tim[ns + "ffn_up.weight"]     .layer = i;
+            tim[ns + "ffn_down.weight"]   .layer = i;
+            tim[ns + "ffn_norm.weight"]   .layer = i;
         }
 
-        TensorInfo& ti = tim[name];
-        if (ti.n_dims > 0) {
-            tf_log_error("Duplicated tensor info for:%s", name.c_str());
-            continue;
-        }
-        ti.n_dims = read_integer(file, GGUFValueType::INT32);
-        if (ti.n_dims < 1 || ti.n_dims > int(sizeof(ti.shape) / sizeof(ti.shape[0]))) {
-            tf_log_error("Invalid shape of tensor:%s", name.c_str());
-            return false;
-        }
-        ti.name = std::move(name);
-        tis.push_back(&ti);
+        std::vector<TensorInfo*> tis;
+        for (int64_t i = 0; i < fh.ti_data_count; ++i) {
+            std::string name = read_string(file);
+            if (tim.find(name) == tim.end()) {
+                tf_log_error("Invalid tensor name:%s", name.c_str());
+                return false;
+            }
 
-        for (int j = 0; j < ti.n_dims; ++j) {
-            ti.shape[j] = read_integer(file, GGUFValueType::INT64);
+            TensorInfo& ti = tim[name];
+            if (ti.n_dims > 0) {
+                tf_log_error("Duplicated tensor info for:%s", name.c_str());
+                continue;
+            }
+            ti.n_dims = read_integer(file, GGUFValueType::INT32);
+            if (ti.n_dims < 1 || ti.n_dims > int(sizeof(ti.shape) / sizeof(ti.shape[0]))) {
+                tf_log_error("Invalid shape of tensor:%s", name.c_str());
+                return false;
+            }
+            ti.name = std::move(name);
+            tis.push_back(&ti);
+
+            for (int j = 0; j < ti.n_dims; ++j) {
+                ti.shape[j] = read_integer(file, GGUFValueType::INT64);
+            }
+            ti.shape[ti.n_dims] = ti.layer >= 0 ? conf.n_layers : 0;
+            ti.dtype  = DataType(read_integer(file, GGUFValueType::INT32));
+            ti.offset = read_integer(file, GGUFValueType::INT64);
+            if (ti.layer <= 0) {
+                if (ti.dtype == DataType::F32) {
+                    ti.pt->reset(ti.shape[0], ti.shape[1], ti.shape[2]);
+                } else if (ti.dtype == DataType::Q8_0) {
+                    ti.pt->reset(ti.shape[0], ti.shape[1], ti.shape[2], QuantType::INT8, conf.quant_group_size);
+                } else {
+                    tf_log_error("This data type is not supported yet.");
+                    return false;
+                }
+                if (!ti.pt->reserve_memory()) {
+                    tf_log_error("Out of memory for storing tensor data.");
+                    return false;
+                }
+            }
         }
-        ti.shape[ti.n_dims] = ti.layer >= 0 ? conf.n_layers : 0;
-        ti.dtype  = DataType(read_integer(file, GGUFValueType::INT32));
-        ti.offset = read_integer(file, GGUFValueType::INT64);
-        if (ti.layer <= 0) {
+
+        size_t file_pos = size_t(file.tellg());
+        file_pos = (file_pos + alignment - 1) & ~size_t(alignment - 1);
+
+        for (auto pti : tis) {
+            auto& ti = *pti;
+            size_t offset = file_pos + ti.offset;
+            size_t num_items = 1;
+            for (int i = 0; i < ti.n_dims; ++i) {
+                num_items *= ti.shape[i];
+            }
+            size_t tensor_size = 0;
             if (ti.dtype == DataType::F32) {
-                ti.pt->reset(ti.shape[0], ti.shape[1], ti.shape[2]);
+                tensor_size = num_items * 4;
+            } else if (ti.dtype == DataType::F16) {
+                tensor_size = num_items * 2;
             } else if (ti.dtype == DataType::Q8_0) {
-                ti.pt->reset(ti.shape[0], ti.shape[1], ti.shape[2], QuantType::INT8, conf.quant_group_size);
+                tensor_size = num_items * 1 + num_items * 2 / conf.quant_group_size;
             } else {
-                tf_log_error("This data type is not supported yet.");
+                tf_log_error("Invalid data type:%d", int(ti.dtype));
                 return false;
             }
-            if (!ti.pt->reserve_memory()) {
-                tf_log_error("Out of memory for storing tensor data.");
+
+            Tensor t;
+            if (ti.layer >= 0) {
+                t = (*ti.pt)[ti.layer];
+            } else {
+                t = ti.pt->slice();
+            }
+
+            std::unique_ptr<char[]> raw_data;
+            char* pdata = nullptr;
+            if (ti.dtype == DataType::F32) {
+                pdata = t.data();
+            } else {
+                raw_data.reset(new char[tensor_size]);
+                if (raw_data == nullptr) {
+                    tf_log_error("Out of memory for reading tensor data");
+                    return false;
+                }
+                pdata = raw_data.get();
+            }
+            file.seekg(file_pos + ti.offset);
+            if (!file.read(pdata, tensor_size)) {
+                tf_log_error("Reading tensor data error, file_pos:%lu/%lu, size:%lu",
+                        size_t(file_pos + ti.offset), file_size, tensor_size);
                 return false;
+            }
+
+            if (ti.dtype == DataType::F32 || ti.dtype == DataType::F16) {
+            } else if (ti.dtype == DataType::Q8_0) {
+                char*  pd = t.data();
+                float* qs = t.scales();
+                for (size_t i = 0, n = num_items / conf.quant_group_size; i < n; ++i) {
+                    qs[i] = float16_to_float32(*reinterpret_cast<uint16_t*>(pdata));
+                    memcpy(pd, pdata+2, conf.quant_group_size);
+                    pdata += 2 + conf.quant_group_size;
+                    pd += conf.quant_group_size;
+                }
+            }
+
+            if (is_debug) tf_log_debug("name:%-25s\tlayer:%2d\tdtype:%2d\toffset:%10lu\ttensor_shape:%s",
+                ti.name.c_str(), ti.layer, int(ti.dtype), offset, t.shape().serialize().c_str());
+            if (offset + tensor_size > file_size) {
+                tf_log_error("data exceeds");
             }
         }
+
+        if (is_debug) print_summary();
     }
-
-    size_t file_pos = size_t(file.tellg());
-    file_pos = (file_pos + alignment - 1) & ~size_t(alignment - 1);
-
-    for (auto pti : tis) {
-        auto& ti = *pti;
-        size_t offset = file_pos + ti.offset;
-        size_t num_items = 1;
-        for (int i = 0; i < ti.n_dims; ++i) {
-            num_items *= ti.shape[i];
-        }
-        size_t tensor_size = 0;
-        if (ti.dtype == DataType::F32) {
-            tensor_size = num_items * 4;
-        } else if (ti.dtype == DataType::F16) {
-            tensor_size = num_items * 2;
-        } else if (ti.dtype == DataType::Q8_0) {
-            tensor_size = num_items * 1 + num_items * 2 / conf.quant_group_size;
-        } else {
-            tf_log_error("Invalid data type:%d", int(ti.dtype));
-            return false;
-        }
-
-        Tensor t;
-        if (ti.layer >= 0) {
-            t = (*ti.pt)[ti.layer];
-        } else {
-            t = ti.pt->slice();
-        }
-
-        std::unique_ptr<char[]> raw_data;
-        char* pdata = nullptr;
-        if (ti.dtype == DataType::F32) {
-            pdata = t.data();
-        } else {
-            raw_data.reset(new char[tensor_size]);
-            if (raw_data == nullptr) {
-                tf_log_error("Out of memory for reading tensor data");
-                return false;
-            }
-            pdata = raw_data.get();
-        }
-        file.seekg(file_pos + ti.offset);
-        if (!file.read(pdata, tensor_size)) {
-            tf_log_error("Reading tensor data error, file_pos:%lu/%lu, size:%lu",
-                    size_t(file_pos + ti.offset), file_size, tensor_size);
-            return false;
-        }
-
-        if (ti.dtype == DataType::F32 || ti.dtype == DataType::F16) {
-        } else if (ti.dtype == DataType::Q8_0) {
-            char*  pd = t.data();
-            float* qs = t.scales();
-            for (size_t i = 0, n = num_items / conf.quant_group_size; i < n; ++i) {
-                qs[i] = float16_to_float32(*reinterpret_cast<uint16_t*>(pdata));
-                memcpy(pd, pdata+2, conf.quant_group_size);
-                pdata += 2 + conf.quant_group_size;
-                pd += conf.quant_group_size;
-            }
-        }
-
-        if (is_debug) tf_log_debug("name:%-25s\tlayer:%2d\tdtype:%2d\toffset:%10lu\ttensor_shape:%s",
-            ti.name.c_str(), ti.layer, int(ti.dtype), offset, t.shape().serialize().c_str());
-        if (offset + tensor_size > file_size) {
-            tf_log_error("data exceeds");
-        }
-    }
-
-    if (is_debug) print_summary();
     return true;
 }
 

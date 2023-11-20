@@ -484,8 +484,9 @@ bool load_tokenizer(std::ifstream& file, Tokenizer& tokenizer) {
     }
     auto conn_tag = ptext + header.conn_tag_pos;
 
-    tokenizer.set(int(header.vocab_size), std::move(vocab), std::move(texts), conn_tag, header.special_tokens);
-
+    tokenizer.set(VocabType(header.vocab_type), int(header.vocab_size),
+            std::move(vocab), std::move(texts), conn_tag, header.special_tokens);
+    tf_log_debug("vocab_type:%s", tokenizer.vocab_type_name());
     return true;
 }
 
@@ -557,7 +558,7 @@ bool load_tensor(std::ifstream& file, const Block& block, const TransformerConfi
     return true;
 }
 
-bool TransformerModel::load_flm(std::string_view model_path) noexcept {
+bool TransformerModel::load_flm(std::string_view model_path, bool tokenizer_only) noexcept {
     std::ifstream file(model_path.data(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         tf_log_error("Failed to open gguf file:%s", model_path.data());
@@ -604,6 +605,9 @@ bool TransformerModel::load_flm(std::string_view model_path) noexcept {
             if (!load_tokenizer(file, tokenizer)) {
                 tf_log_error("Loading tokenizer error at file_pos:%lu", file_pos);
                 return false;
+            }
+            if (tokenizer_only) {
+                break;
             }
         } else if (block.is_tensor()) {
             if (is_debug) {

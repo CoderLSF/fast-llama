@@ -104,7 +104,8 @@ public:
 
     bool load(std::string_view checkpoint_path,
               std::string_view tokenizer_path="",
-              ModelFileType mft=ModelFileType::UNKNOWN);
+              ModelFileType mft=ModelFileType::UNKNOWN,
+              bool tokenizer_only=false);
 
     void print_summary() const noexcept;
 
@@ -114,9 +115,9 @@ protected:
     static bool is_valid_gguf_header(std::span<const char> file_header) noexcept;
     static bool is_valid_llama2c_header(std::span<const char> file_header) noexcept;
 
-    bool load_flm    (std::string_view model_path) noexcept;
-    bool load_gguf   (std::string_view model_path) noexcept;
-    bool load_llama2c(std::string_view checkpoint_path, std::string_view tokenizer_path) noexcept;
+    bool load_flm    (std::string_view model_path, bool tokenizer_only) noexcept;
+    bool load_gguf   (std::string_view model_path, bool tokenizer_only) noexcept;
+    bool load_llama2c(std::string_view checkpoint_path, std::string_view tokenizer_path, bool tokenizer_only) noexcept;
 };
 
 } // namespace cpuft

@@ -36,6 +36,11 @@ enum class SpecialTokenType {
 
     MAX  = 8,
 };
+enum class VocabType {
+    NONE = 0,
+    BPE  = 1,
+    SPM  = 2,
+};
 
 class Tokenizer {
 public:
@@ -45,8 +50,8 @@ public:
 
     Tokenizer& operator=(Tokenizer&& other);
 
-    bool load(std::string_view path, int vocab_size);
-    bool set(int vocab_size,
+    bool load(std::string_view path, VocabType vocab_type, int vocab_size);
+    bool set(VocabType vocab_type, int vocab_size,
              std::unique_ptr<Token[]>&& vocab,
              std::unique_ptr<char[]>&& text_data,
              std::string_view conn_tag,
@@ -56,6 +61,12 @@ public:
     const char* decode(int token, int prev_token=-1) const noexcept;
     std::string_view decode(std::span<const int> tokens, std::span<char> buffer) const noexcept;
 
+    std::vector<int> encode(std::string_view text) const noexcept;
+    std::string decode(const std::span<const int> tokens) const noexcept;
+
+    inline VocabType get_vocab_type() const noexcept {
+        return _vocab_type;
+    }
     inline int vocab_size() const noexcept {
         return _vocab_size;
     }
@@ -72,7 +83,10 @@ public:
         return _name;
     }
 
-    inline void set_vocab_size(int vocab_size) {
+    inline void set_vocab_type(VocabType vocab_type) noexcept {
+        _vocab_type = vocab_type;
+    }
+    inline void set_vocab_size(int vocab_size) noexcept {
         _vocab_size = vocab_size;
     }
     void set_token_types (std::span<const int>   types);
@@ -106,6 +120,15 @@ public:
     const Token& operator[](int i) const noexcept {
         return _vocab[i];
     }
+    const char* vocab_type_name() const noexcept {
+        if (_vocab_type == VocabType::BPE) {
+            return "BPE";
+        } else if (_vocab_type == VocabType::SPM) {
+            return "SPM";
+        } else {
+            return "None";
+        }
+    }
 
 protected:
     void build_text2id_map();
@@ -113,6 +136,7 @@ protected:
     int  search_text(std::string_view text) const noexcept;
 
 private:
+    VocabType                     _vocab_type = VocabType::BPE;
     std::unique_ptr<Token[]>      _vocab;
     int                           _vocab_size   = 0;
     int                           _bos_token_id = 1;

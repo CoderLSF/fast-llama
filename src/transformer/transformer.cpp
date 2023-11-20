@@ -41,7 +41,7 @@ bool ParallelTransformer::load(std::string_view ckpt_path, std::string_view tknr
     return _tp.init(this, tf, num_threads, use_numa);
 }
 
-std::vector<int> ParallelTransformer::encode(const char* prompt) {
+std::vector<int> ParallelTransformer::encode(const char* prompt) const noexcept {
     if (prompt == nullptr || prompt[0] == '\0') {
         return {};
     }
@@ -60,6 +60,9 @@ bool ParallelTransformer::generate(const char* prompt,
         fprintf(stderr, "Empty input for generate()\n");
         return false;
     }
+
+    printf("Input prompt:%s\n", prompt);
+    print_vector("Input tokens:", input_tokens);
 
     int prev_token = -1;
     auto cb_ = [&](std::span<const int> tokens, int index, bool ended) -> bool {

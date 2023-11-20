@@ -37,6 +37,7 @@ Tokenizer::Tokenizer(Tokenizer&& other) {
 }
 
 Tokenizer& Tokenizer::operator=(Tokenizer&& other) {
+    _vocab_type = other._vocab_type;
     _vocab.reset(other._vocab.release());
     _vocab_size   = other._vocab_size;
     _bos_token_id = other._bos_token_id;
@@ -52,11 +53,12 @@ Tokenizer& Tokenizer::operator=(Tokenizer&& other) {
     return *this;
 }
 
-bool Tokenizer::set(int vocab_size,
+bool Tokenizer::set(VocabType vocab_type, int vocab_size,
          std::unique_ptr<Token[]>&& vocab,
          std::unique_ptr<char[]>&& text_data,
          std::string_view conn_tag,
          int special_tokens[int(SpecialTokenType::MAX)]) noexcept {
+    _vocab_type = vocab_type;
     _vocab_size = vocab_size;
     _vocab.reset(vocab.release());
     _text_data.reset(text_data.release());
@@ -157,12 +159,13 @@ void Tokenizer::build_text2id_map() {
     }
 }
 
-bool Tokenizer::load(std::string_view path, int vocab_size) {
-    if (path.empty() || vocab_size < 1) {
+bool Tokenizer::load(std::string_view path, VocabType vocab_type, int vocab_size) {
+    if (path.empty() || vocab_size < 1 || vocab_type != VocabType::BPE) {
         tf_log_error("Invalid parameters for tokenizer loader");
         return false;
     }
 
+    _vocab_type = vocab_type;
     _vocab_size = vocab_size;
     _vocab.reset(new(std::nothrow) Token[vocab_size]);
     if (_vocab == nullptr) {
@@ -356,6 +359,29 @@ std::string_view Tokenizer::decode(std::span<const int> tokens, std::span<char> 
     }
     buffer[spos] = '\0';
     return {buffer.data(), spos};
+}
+
+std::vector<int> Tokenizer::encode(std::string_view text) const noexcept {
+    if (text.empty()) {
+        return {};
+    }
+    std::vector<int> res_tokens(2048, 0);
+    int num_tokens = encode(text, {res_tokens.data(), res_tokens.size()}, true);
+    res_tokens.resize(size_t(num_tokens));
+    return res_tokens;
+}
+
+std::string Tokenizer::decode(const std::span<const int> tokens) const noexcept {
+    if (tokens.empty()) {
+        return "";
+    }
+    std::string res;
+    int prev_token = -1;
+    for (auto token : tokens) {
+        res += decode(token, prev_token);
+        prev_token = token;
+    }
+    return res;
 }
 
 bool is_safe_piece(const char *piece) noexcept {

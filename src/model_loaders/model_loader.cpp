@@ -65,18 +65,18 @@ ModelFileType TransformerModel::detect_file_type(std::string_view model_path) no
     }
 }
 
-bool TransformerModel::load(std::string_view checkpoint_path, std::string_view tokenizer_path, ModelFileType mft) {
+bool TransformerModel::load(std::string_view checkpoint_path, std::string_view tokenizer_path, ModelFileType mft, bool tokenizer_only) {
     if (mft == ModelFileType::UNKNOWN) {
         mft = detect_file_type(checkpoint_path);
     }
 
     switch (mft) {
     case ModelFileType::FLM:
-        return load_flm(checkpoint_path);
+        return load_flm(checkpoint_path, tokenizer_only);
     case ModelFileType::GGUF:
-        return load_gguf(checkpoint_path);
+        return load_gguf(checkpoint_path, tokenizer_only);
     case ModelFileType::LLAMA2C:
-        return load_llama2c(checkpoint_path, tokenizer_path);
+        return load_llama2c(checkpoint_path, tokenizer_path, tokenizer_only);
     default:
         tf_log_error("Unsupported model file type:%d", int(mft));
         return false;

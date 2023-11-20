@@ -47,6 +47,8 @@ std::vector<std::string_view> ssplit(const std::string& s, std::string_view deli
 int stoi(std::string_view s);
 float float16_to_float32(uint16_t f16);
 
+void print_vector(std::string_view title, std::span<const int> vec);
+
 template <typename T>
 void print_summary(std::string_view prefix, const T& arr) {
     std::cout << prefix << "(size:" << arr.size() << ") [";

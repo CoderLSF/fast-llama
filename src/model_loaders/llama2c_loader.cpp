@@ -39,7 +39,7 @@ bool TransformerModel::is_valid_llama2c_header(std::span<const char> file_header
             && conf.vocab_size >= 1000 && conf.vocab_size < (256 << 10);
 }
 
-bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view tokenizer_path) noexcept {
+bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view tokenizer_path, bool tokenizer_only) noexcept {
     std::ifstream file(ckpt_path.data(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         tf_log_error("Failed to open model file:%s", ckpt_path.data());
@@ -70,9 +70,12 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
     bool shared_weights = raw_conf.vocab_size > 0;
 
     if (is_debug) tf_log_debug("Loading tokenizer from:[%s] ...", tokenizer_path.data());
-    if (!tokenizer.load(tokenizer_path, conf.vocab_size)) {
+    if (!tokenizer.load(tokenizer_path, VocabType::BPE, conf.vocab_size)) {
         tf_log_error("Failed to load tokenizer from:%s", tokenizer_path.data());
         return false;
+    }
+    if (tokenizer_only) {
+        return true;
     }
 
     if (is_debug) tf_log_debug("Loading model weights from:[%s] ...", ckpt_path.data());
