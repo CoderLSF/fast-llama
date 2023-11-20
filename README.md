@@ -12,8 +12,8 @@ fast-llama is a super `HIGH`-performance inference engine for LLMs like LLaMA (*
 | **Model Types** | ✅LLaMA (Only Chinese-LLaMA2 1.3B & 7B are verified currently) | LLM/Baichuan, StableDiffusion |
 | **Quantization** | ✅INT16, ✅INT8 | INT4 |
 | **Model Formats** | ✅HuggingFace, ✅gguf(by llama.cpp), ✅flm | |
-| **Systems** | ✅Linux | Windows, Macbook, Android, iOS |
-| **CPU/GPU** | ✅Intel CPU with AVX-512 | All x86/64, ARM, Apple Mx CPUs, GPU, CPU+GPU |
+| **Systems** | ✅Linux, ✅Windows | Macbook, Android, iOS |
+| **CPU/GPU** | ✅X86/64 CPU | ARM, Apple Mx CPUs, GPU, CPU+GPU |
 | **Architectures** | ✅UMA, ✅NUMA | |
 
 ## **Advantages**
@@ -32,10 +32,7 @@ Only Linux is supported currently. Support of other platforms including Windows,
 
 #### Requirements
 - GCC 10.x or newer versions
-- CPU with AVX-512
-- libnuma-dev
-
-> libraries like mpi, openblas, mkl, etc are NOT needed currently.
+- `libnuma-dev` if your computer has more than one physical CPUs
 
 #### Compilation
 Method 1. Using the provided build script:
