@@ -33,6 +33,7 @@ Only Linux is supported currently. Support of other platforms including Windows,
 #### Requirements
 - `GCC 10.x` or newer versions
 - `libnuma-dev` if your computer has more than one physical CPUs
+   - `Linux Kernel v5.x` or higher is needed for NUMA
 
 #### Compilation
 Method 1. Using the provided build script:
