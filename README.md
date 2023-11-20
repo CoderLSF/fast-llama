@@ -65,7 +65,7 @@ make -j 4
 
 >   See [Chinese-LLaMA-Alpaca-2](https://github.com/ymcui/Chinese-LLaMA-Alpaca-2)
 
-**`Step 2`**: Convert model format
+**`Step 2`**: Convert the model info FLM format
 ```bash
 python3 ./tools/convert_flm.py -m /path/to/model-directory -o ./models/model-name-int8.flm -t int8
 ```
