@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <utility>
 #include <string>
 #include <span>
@@ -16,6 +14,7 @@
 #include <fstream>
 #include <algorithm>
 
+#include "base_types.h"
 #include "tf_operators.h"
 #include "quant_operators.h"
 #include "alignmem.hpp"
@@ -47,7 +46,7 @@ struct TensorShape {
 };
 
 class Tensor {
-    static constexpr int QUANT_GROUP_SIZE = 32;
+    static constexpr int QUANT_GROUP_SIZE = 64;
 public:
     /*********************************< constructors and destructors >********************************/
     ~Tensor() noexcept { release(); }
@@ -287,13 +286,15 @@ public:
     float sum(int dim3_index, int dim2_index) const noexcept {
         return sum_(size_t(_columns) * (_rows * dim3_index + dim2_index), _columns);
     }
+
     float square_sum() const noexcept;
-    float max() const noexcept {
-        return max_(0, size());
-    }
-    float max(int dim3_index) const noexcept {
+
+    float max(int layer=-1) const noexcept {
+        if (layer < 0) {
+            return max_(0, size());
+        }
         auto matrix_size = size_t(_columns) * _rows;
-        return max_(matrix_size * dim3_index, matrix_size);
+        return max_(matrix_size * layer, matrix_size);
     }
     float max(int dim3_index, int dim2_index) const noexcept {
         return max_(size_t(_columns) * (_rows * dim3_index + dim2_index), _columns);
@@ -317,7 +318,9 @@ public:
     }
 
     /******************************************< display >*****************************************/
-    std::string display_string(bool show_attributes=false, bool pretty_print=false, int display_num=9, int precision=-1, int column_start=0, int column_end=-1) const noexcept; 
+    std::string display_string(bool show_attributes=false, bool pretty_print=false, int display_num=9,
+                                int precision=-1, int column_start=0, int column_end=-1) const noexcept; 
+
     void print(std::string_view prefix="", bool show_attributes=false, bool pretty_print=false, int display_num=9, int precision=-1, int column_start=0, int column_end=-1) const noexcept; 
     friend std::ostream& operator<<(std::ostream& os, const Tensor& t) {
         os << t.display_string();
@@ -325,7 +328,7 @@ public:
     }
 
     /******************************************< attributes >*****************************************/
-    QuantType quant_type()       const noexcept { return QuantType(_qtype);  }
+    QuantType quant_type()       const noexcept { return QuantType(_qtype); }
     uint16_t  quant_group_size() const noexcept { return _qgsize; }
 
     TensorShape shape() const noexcept {

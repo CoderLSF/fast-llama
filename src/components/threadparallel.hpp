@@ -9,14 +9,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
-#include <sys/time.h>
-
-#ifdef __linux__ // Linux系统
-    #include <pthread.h>
-    #include <sched.h>
-#elif _WIN32 // Windows系统
-    #include <Windows.h>
-#endif
 
 #include <atomic>
 #include <algorithm>
@@ -32,6 +24,9 @@
 #include <vector>
 #include <map>
 
+#include "semaphore_utility.h"
+#include "sys_api.h"
+
 namespace cpuft {
 
 enum class NotifyTreeType {
@@ -42,9 +37,11 @@ enum class NotifyTreeType {
 };
 
 struct ThreadGroupInfo {
-    short group_id=0;
-    short thread_id=0;
-    int   num_threads=0;
+    short group_id;
+    short thread_id;
+    int   num_threads;
+
+    ThreadGroupInfo(int gid=0, int tid=0, int nthr=0) : group_id(gid), thread_id(tid), num_threads(nthr) {}
 };
 
 class ThreadGroupBuilder {
@@ -84,6 +81,7 @@ private:
 template <typename ProcessorClass, typename GlobalData, typename ThreadData>
 class ThreadParallel {
 public:
+    using sem_t = Semaphore;
     enum class Error {
         OK = 0,
         THREAD_INIT_ERROR,
@@ -211,7 +209,7 @@ public:
         _cur_group_id = group_id;
         _num_processing.store((int64_t)ng.num_threads);
         for (auto sem : ng.root) {
-            sem_post(sem);
+            sem->release();
         }
     }
     void wait() {
@@ -235,7 +233,7 @@ protected:
         }
 #ifdef SEQUENTIAL_INIT
         if (thread_id > 0) {
-            sem_wait(&_tnis[thread_id-1].sem);
+            _tnis[thread_id-1].sem.acquire();
         }
 #endif
 
@@ -243,7 +241,7 @@ protected:
         bool init_ok = _processor->parallel_thread_init(_tnis[thread_id].tgi, gd, td);
 #ifdef SEQUENTIAL_INIT
         if (thread_id < _num_threads - 1) {
-            sem_post(&_tnis[thread_id].sem);
+            _tnis[thread_id].sem.release();
         }
 #endif
 
@@ -272,13 +270,13 @@ protected:
             gi.num_children = int(children.size());
         }
 
-        sem_t* task_sem = &_tnis[thread_id].sem;
+        auto& task_sem = _tnis[thread_id].sem;
         while (!_stop) {
-            sem_wait(task_sem);
+            task_sem.acquire();
             auto& gi = group_info_map[_cur_group_id];
             if (gi.tid >= 0) {
                 for (int i = 0; i < gi.num_children; ++i) {
-                    sem_post(gi.sems[i]);
+                    gi.sems[i]->release();
                 }
                 if (!_stop) {
                     _processor->parallel_process_task(td, *gi.tgi);
@@ -374,44 +372,10 @@ protected:
         }
     }
 
-    void bind_cpu(int cpu_id) {
-        #ifdef __linux__ // Linux系统
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(cpu_id, &cpuset); // 将线程绑定到第一个CPU核
-        if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) != 0) {
-            std::cerr << "Failed to set thread affinity" << std::endl;
-        }
-        #elif _WIN32 // Windows系统
-        HANDLE hThread = GetCurrentThread();
-        DWORD_PTR mask = cpu_id; // 将线程绑定到第一个CPU核
-        if (!SetThreadAffinityMask(hThread, mask)) {
-            std::cerr << "Failed to set thread affinity" << std::endl;
-        }
-        #endif
-    }
-
-    static int get_num_processors() {
-        #ifdef __linux__ // Linux系统
-        return sysconf(_SC_NPROCESSORS_ONLN);
-        #elif _WIN32 // Windows系统
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
-        return sysInfo.dwNumberOfProcessors;
-        #endif
-    }
-
 private:
     struct ThreadNotifyInfo {
         sem_t                           sem;
         std::vector<ThreadGroupInfo>    tgi;
-
-        ThreadNotifyInfo() {
-            sem_init(&sem, 0, 0);
-        }
-        ~ThreadNotifyInfo() {
-            sem_destroy(&sem);
-        }
     };
 
     std::atomic<int64_t>            _num_processing = 0;
@@ -428,18 +392,6 @@ private:
     std::vector<std::thread>        _threads;
     int                             _num_threads = 0;
     Error                           _err = Error::OK;
-};
-
-static std::string serialize_vector(const auto& vec) {
-    std::string s;
-    for (auto v : vec) {
-        if (s.size() > 0) {
-            s += ", " + std::to_string(v);
-        } else {
-            s = std::to_string(v);
-        }
-    }
-    return s;
 };
 
 } // namespace cpuft

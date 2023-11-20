@@ -6,6 +6,8 @@
 
 #include "transformer.h"
 #include "utility.h"
+#include "console.h"
+#include "simd.h"
 
 using namespace cpuft;
 enum class Mode {
@@ -29,6 +31,7 @@ struct Arguments {
     Mode            mode            = Mode::GEN;
     int             rounds          = 0;
 
+    int             max_batch_size  = 128;
     int             seed            = 128391297;
     bool            print_detail    = false;
     bool            is_debug        = false;
@@ -45,13 +48,14 @@ int main(int argc, const char** argv) {
         args.prompt = "That was a long long story happened in the ancient Europe. It was about a brave boy name Oliver. Oliver lived in a small village among many big moutains. It was a beautiful village.";
     }
 
+    Console con;
     if (args.print_detail) {
-        fprintf(stderr, "num_threads:\x1b[33m%d\x1b[0m\n", args.num_threads);
-        fprintf(stderr, "   use_numa:\x1b[33m%d\x1b[0m\n", args.use_numa);
-        fprintf(stderr, "  ckpt_path:\x1b[33m%s\x1b[0m\n", args.ckpt_path);
-        fprintf(stderr, "  tknr_path:\x1b[33m%s\x1b[0m\n", args.tknr_path);
-        fprintf(stderr, "      top_p:\x1b[33m%g\x1b[0m\n", args.topp);
-        fprintf(stderr, "temperature:\x1b[33m%g\x1b[0m\n", args.temp);
+        fprintf(stderr, "num_threads:%s%d%s\n", con.yellow(), args.num_threads, con.endtag());
+        fprintf(stderr, "   use_numa:%s%d%s\n", con.yellow(), args.use_numa,    con.endtag());
+        fprintf(stderr, "  ckpt_path:%s%s%s\n", con.yellow(), args.ckpt_path,   con.endtag());
+        fprintf(stderr, "  tknr_path:%s%s%s\n", con.yellow(), args.tknr_path,   con.endtag());
+        fprintf(stderr, "      top_p:%s%g%s\n", con.yellow(), args.topp,        con.endtag());
+        fprintf(stderr, "temperature:%s%g%s\n", con.yellow(), args.temp,        con.endtag());
         //fprintf(stderr, "     prompt:\x1b[33m%s\x1b[0m\n", args.prompt);
         fprintf(stderr, "\n");
     }
@@ -59,7 +63,7 @@ int main(int argc, const char** argv) {
     srand(args.seed);
 
     ParallelTransformer ptf(args.print_detail || args.is_debug);
-    bool ok = ptf.load(args.ckpt_path, args.tknr_path, args.mft, args.qtype, args.num_threads, args.use_numa);
+    bool ok = ptf.load(args.ckpt_path, args.tknr_path, args.mft, args.qtype, args.num_threads, args.use_numa, args.max_batch_size);
     if (!ok) {
         fprintf(stderr, "Failed to load model\n");
         exit(1);
@@ -83,8 +87,8 @@ int main(int argc, const char** argv) {
         auto cb = [&](const char* text, int num_input_tokens, int num_output_tokens, bool ended)->bool {
             if (first_latancy_us == 0) {
                 if (args.mode != Mode::TEST) {
-                    printf("prompt: \x1b[33m%s\x1b[0m\n", args.prompt);
-                    printf("output: \x1b[32m");
+                    printf("prompt: %s%s%s\n", con.yellow(), args.prompt, con.endtag());
+                    printf("output: %s", con.green());
                 }
                 first_latancy_us = int(tmr.elapsed_us());
                 prompt_token_num = num_input_tokens;
@@ -102,7 +106,7 @@ int main(int argc, const char** argv) {
         total_latancy_us = int(tmr.elapsed_us());
 
         if (args.mode != Mode::TEST) {
-            printf("\x1b[0m\n\n");
+            printf("%s\n\n", con.endtag());
         }
         avg_prompt_token_num += prompt_token_num;
         avg_output_token_num += output_token_num;
@@ -117,10 +121,16 @@ int main(int argc, const char** argv) {
     auto first_token_latancy = avg_prompt_latancy / avg_prompt_token_num;
     auto later_token_latancy = avg_output_latancy / (avg_output_token_num - 1);
 
-    printf("num_threads:\x1b[33m%2d\x1b[0m\tquant:\x1b[32m%s\x1b[0m\tuse_numa:\x1b[32m%d\x1b[0m\tprompt_size:%3d\toutput_size:%3d\ttotal_latancy:%5.0fms\tprompt_token_latancy:\x1b[33m%4.2f\x1b[0mms\toutput_token_latancy:\x1b[33m%4.2f\x1b[0mms\tprompt_speed:\x1b[32m%5.1f\x1b[0mtps\toutput_speed:\x1b[32m%5.1f\x1b[0mtps\n",
-            args.num_threads, Tensor::type_to_name(args.qtype), int(args.use_numa), int(avg_prompt_token_num), int(avg_output_token_num), avg_prompt_latancy + avg_output_latancy,
-            first_token_latancy, later_token_latancy,
-            1000. / first_token_latancy, 1000. / later_token_latancy);
+    printf("num_threads:%s%2d%s\tquant:%s%s%s\tuse_numa:%s%d%s\tsimd_size:%d\tprompt_size:%3d\toutput_size:%3d\ttotal_latancy:%5.0fms\t"
+           "prompt_token_latancy:%s%4.2f%sms\toutput_token_latancy:%s%4.2f%sms\tprompt_speed:%s%5.1f%stps\toutput_speed:%s%5.1f%stps\n",
+           con.yellow(), args.num_threads, con.endtag(),
+           con.green(), Tensor::type_to_name(args.qtype), con.endtag(),
+           con.green(), int(args.use_numa), con.endtag(), int(get_simd_size()),
+           int(avg_prompt_token_num), int(avg_output_token_num), avg_prompt_latancy + avg_output_latancy,
+           con.yellow(), first_token_latancy, con.endtag(),
+           con.yellow(), later_token_latancy, con.endtag(),
+           con.green(), 1000. / first_token_latancy, con.endtag(),
+           con.green(), 1000. / later_token_latancy, con.endtag());
     return 0;
 }
 

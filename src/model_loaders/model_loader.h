@@ -33,6 +33,17 @@ enum class ModelFileType {
     _MAX_,
 };
 
+class LazyTensor {
+public:
+    Tensor& get_tensor();
+
+private:
+    Tensor          _tensor;
+    std::string     _file_path;
+    size_t          _data_offset;
+    size_t          _scales_offset;
+};
+
 struct TransformerConfig {
     std::string         name;
     ModelArchitecture   arch;

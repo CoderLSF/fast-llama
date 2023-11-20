@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include "malloc_utility.h"
 #include "tf_operators.h"
 
 namespace cpuft {
@@ -12,7 +13,7 @@ void Sampler::build(int vocab_size, uint64_t rng_seed) {
     _vocab_size = vocab_size;
     _rng_state  = rng_seed;
     // buffer only used with nucleus sampling; may not need but it's ~small
-    _probindex = (ProbIndex*)aligned_alloc(64, vocab_size * sizeof(ProbIndex));
+    _probindex = (ProbIndex*)malloc(vocab_size * sizeof(ProbIndex));
 }
 
 Sampler::~Sampler() {

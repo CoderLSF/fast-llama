@@ -1,6 +1,6 @@
 /*************************************************************************************
- @Author: Liu Shaofeng
- @Date:   2023/10/16
+    Author: Coder LSF (Liu Shaofeng)
+      Date: 2023/10/16
 **************************************************************************************/
 
 #include "transformer.h"
@@ -29,6 +29,8 @@ bool ParallelTransformer::load(std::string_view ckpt_path, std::string_view tknr
     if (!tf.load(ckpt_path, tknr_path, mft)) {
         return false;
     }
+    tf.conf.max_seq_len = 1024;
+
     _tkn = std::move(tf.tokenizer);
 
     if (tf.conf.quant_type == QuantType::NONE) {
@@ -63,7 +65,7 @@ bool ParallelTransformer::generate(const char* prompt,
     auto cb_ = [&](std::span<const int> tokens, int index, bool ended) -> bool {
         auto piece = _tkn.decode(tokens[0], prev_token);
         prev_token = tokens[0];
-        return cb(piece, input_tokens.size(), index + tokens.size(), ended);
+        return cb(piece, input_tokens.size(), index + tokens.size() - input_tokens.size(), ended);
     };
     return generate(input_tokens, cb_, max_new_tokens, temperature, topp);
 }
@@ -81,7 +83,9 @@ bool ParallelTransformer::generate(const std::vector<int>& input_tokens,
         max_new_tokens = v;
     }
 
-    for (int i = 0, token=input_tokens[0]; token != 0 && i < max_new_tokens; ++i) {
+    int max_tokens = int(input_tokens.size()) + max_new_tokens;
+
+    for (int i = 0, token=input_tokens[0]; token != 0 && i < max_tokens; ++i) {
         if (i == 0) {
             auto logits = forward({input_tokens.data(), input_tokens.size()}, 0);
             token = _sampler.sample(logits, temperature, topp);
@@ -176,7 +180,7 @@ void ParallelTransformer::analyze_weights(const TransformerModel& tf) {
     for (int i = 0; i < attq.rows(); ++i) {
         row.copy_from(attq[i]);
         auto [min1, max1] = row.min_max();
-        auto vmax = cpuft::array_max_simd(row.float_data(), row.size());
+        auto vmax = cpuft::simd::array_max(row.float_data(), row.size());
         if (vmax != max1) {
             printf("Found wrong max value:%.6f vs %.6f\n", vmax, max1);
         }
@@ -204,7 +208,7 @@ void ParallelTransformer::analyze_weights(const TransformerModel& tf) {
 bool ParallelTransformer::parallel_global_init(
             const TransformerModel& tf, int num_threads, bool use_numa, ThreadGroupBuilder& tgb) {
     _num_threads = num_threads;
-    _use_numa    = use_numa;
+    _use_numa    = use_numa && is_numa_available();
 
     _tfc = tf.conf;
     if (_tfc.n_heads % _tfc.n_kv_heads != 0) {
@@ -236,7 +240,7 @@ bool ParallelTransformer::parallel_global_init(
         set_tt_gid(TaskType::FFN2, tgb.add_group(tn));
     }
 
-    bool ret = _tfr.buf.alloc(sizeof(float) * (_tfc.dim * 3 + _tfc.vocab_size) * _max_batch_size);
+    bool ret = _tfr.buf.alloc(sizeof(float) * (_tfc.dim * 3 + _tfc.vocab_size) * _max_batch_size, false);
     if (!ret) {
         ft_log_error("Out of memory");
         return false;

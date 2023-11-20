@@ -5,19 +5,27 @@ namespace cpuft {
 
 constexpr const char* g_bash_colors[] = {
     "",         // NONE
-    "\x1b[31m", // RED
-    "\x1b[32m", // GREEN
-    "\x1b[33m", // YELLOW
-    "\x1b[34m", // BLUE
-    "\x1b[35m", // PURPLE
+    "\033[31m", // RED
+    "\033[32m", // GREEN
+    "\033[33m", // YELLOW
+    "\033[34m", // BLUE
+    "\033[35m", // PURPLE
 };
 
-const char* Console::get_color(Color c) {
+const char* Console::get_color(Color c) const noexcept {
+    #ifdef _WIN32
+    return "";
+    #else
     return _enabled ? g_bash_colors[int(c) % int(Color::MAX)] : "";
+    #endif
 }
 
-const char* Console::get_endtag() {
+const char* Console::get_endtag() const noexcept {
+    #ifdef _WIN32
+    return "";
+    #else
     return _enabled ? "\x1b[0m" : "";
+    #endif
 }
 
 }

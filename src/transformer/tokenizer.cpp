@@ -9,8 +9,6 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sleef.h>
 
 #include <fstream>
 #include <memory>

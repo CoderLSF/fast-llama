@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <numa.h>
+
+#include "malloc_utility.h"
 
 namespace cpuft {
 
@@ -17,7 +18,7 @@ template <typename T, size_t ALIGN_SIZE=1>
 struct AlignedMemory {
 public:
     AlignedMemory() {}
-    AlignedMemory(size_t num_elements, bool use_numa_=true) {
+    AlignedMemory(size_t num_elements, bool use_numa_=false) {
         alloc(num_elements, use_numa_);
     }
     AlignedMemory(AlignedMemory&& other) {
@@ -84,9 +85,9 @@ public:
         size_t mem_size = sizeof(T) * num_elements + ALIGN_SIZE - 1;
         //fprintf(stderr, "[AlignedMemory::alloc()] mem_size:%lu\n", mem_size);
         if (use_numa_) {
-            ptr_ = reinterpret_cast<T*>(numa_alloc_onnode(mem_size, numa_node_of_cpu(sched_getcpu())));
+            ptr_ = numa_malloc(mem_size);
         } else {
-            ptr_ = reinterpret_cast<T*>(aligned_alloc(ALIGN_SIZE, mem_size));
+            ptr_ = reinterpret_cast<T*>(aligned_malloc(mem_size, ALIGN_SIZE));
         }
         if (ptr_ == nullptr) {
             //fprintf(stderr, "[AlignedMemory::alloc()] Insufficient memory for size:%lu\n", mem_size);
@@ -113,7 +114,7 @@ public:
         if (use_numa_) {
             numa_free(reinterpret_cast<void*>(reinterpret_cast<uint64_t>(ptr_) - offset_), sizeof(T)*num_elements_ + ALIGN_SIZE - 1);
         } else {
-            ::free(ptr_);
+            aligned_free(ptr_);
         }
         ptr_ = nullptr;
         offset_ = 0;

@@ -13,6 +13,7 @@
 #include <filesystem>
 
 #include "log.h"
+#include "console.h"
 #include "model_loader.h"
 
 namespace cpuft {
@@ -84,29 +85,30 @@ bool TransformerModel::load(std::string_view checkpoint_path, std::string_view t
 }
 
 void TransformerModel::print_summary() const noexcept {
-    tf_log_debug("\t                   name:\x1b[33m%s\x1b[0m", conf.name.c_str());
-    tf_log_debug("\t           architecture:\x1b[33m%d\x1b[0m", int(conf.arch));
-    tf_log_debug("\t            weight type:\x1b[33m%d\x1b[0m", int(conf.wtype));
+    Console con;
+    tf_log_debug("\t                   name:%s%s%s", con.yellow(), conf.name.c_str(), con.endtag());
+    tf_log_debug("\t           architecture:%s%d%s", con.yellow(), int(conf.arch), con.endtag());
+    tf_log_debug("\t            weight type:%s%d%s", con.yellow(), int(conf.wtype), con.endtag());
     tf_log_debug("");
-    tf_log_debug("\t            max_seq_len:\x1b[33m%d\x1b[0m", conf.max_seq_len);
-    tf_log_debug("\t             vocab_size:\x1b[33m%d\x1b[0m", conf.vocab_size);
-    tf_log_debug("\t               n_layers:\x1b[33m%d\x1b[0m", conf.n_layers);
-    tf_log_debug("\t                    dim:\x1b[33m%d\x1b[0m", conf.dim);
-    tf_log_debug("\t                 kv_dim:\x1b[33m%d\x1b[0m", conf.kv_dim);
-    tf_log_debug("\t                n_heads:\x1b[33m%d\x1b[0m", conf.n_heads);
-    tf_log_debug("\t             n_kv_heads:\x1b[33m%d\x1b[0m", conf.n_kv_heads);
-    tf_log_debug("\t              head_size:\x1b[33m%d\x1b[0m", conf.head_size);
-    tf_log_debug("\t             hidden_dim:\x1b[33m%d\x1b[0m", conf.hidden_dim);
+    tf_log_debug("\t            max_seq_len:%s%d%s", con.yellow(), conf.max_seq_len, con.endtag());
+    tf_log_debug("\t             vocab_size:%s%d%s", con.yellow(), conf.vocab_size, con.endtag());
+    tf_log_debug("\t               n_layers:%s%d%s", con.yellow(), conf.n_layers, con.endtag());
+    tf_log_debug("\t                    dim:%s%d%s", con.yellow(), conf.dim, con.endtag());
+    tf_log_debug("\t                 kv_dim:%s%d%s", con.yellow(), conf.kv_dim, con.endtag());
+    tf_log_debug("\t                n_heads:%s%d%s", con.yellow(), conf.n_heads, con.endtag());
+    tf_log_debug("\t             n_kv_heads:%s%d%s", con.yellow(), conf.n_kv_heads, con.endtag());
+    tf_log_debug("\t              head_size:%s%d%s", con.yellow(), conf.head_size, con.endtag());
+    tf_log_debug("\t             hidden_dim:%s%d%s", con.yellow(), conf.hidden_dim, con.endtag());
     tf_log_debug("");
-    tf_log_debug("\t   rope_dimension_count:\x1b[33m%d\x1b[0m", conf.rope_dimension_count);
-    tf_log_debug("\t         rope_freq_base:\x1b[33m%g\x1b[0m", conf.rope_freq_base);
-    tf_log_debug("\t layer_norm_rms_epsilon:\x1b[33m%g\x1b[0m", conf.layer_norm_rms_epsilon);
+    tf_log_debug("\t   rope_dimension_count:%s%d%s", con.yellow(), conf.rope_dimension_count, con.endtag());
+    tf_log_debug("\t         rope_freq_base:%s%g%s", con.yellow(), conf.rope_freq_base, con.endtag());
+    tf_log_debug("\t layer_norm_rms_epsilon:%s%g%s", con.yellow(), conf.layer_norm_rms_epsilon, con.endtag());
     tf_log_debug("");
-    tf_log_debug("\t       quant_group_size:\x1b[33m%d\x1b[0m", conf.quant_group_size);
+    tf_log_debug("\t       quant_group_size:%s%d%s", con.yellow(), conf.quant_group_size, con.endtag());
     tf_log_debug("");
-    tf_log_debug("\t           bos_token_id:\x1b[33m%d\x1b[0m", tokenizer.bos_token_id());
-    tf_log_debug("\t           eos_token_id:\x1b[33m%d\x1b[0m", tokenizer.eos_token_id());
-    tf_log_debug("\t           pad_token_id:\x1b[33m%d\x1b[0m", tokenizer.pad_token_id());
+    tf_log_debug("\t           bos_token_id:%s%d%s", con.yellow(), tokenizer.bos_token_id(), con.endtag());
+    tf_log_debug("\t           eos_token_id:%s%d%s", con.yellow(), tokenizer.eos_token_id(), con.endtag());
+    tf_log_debug("\t           pad_token_id:%s%d%s", con.yellow(), tokenizer.pad_token_id(), con.endtag());
 }
 
 } // namespace cpuft

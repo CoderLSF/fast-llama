@@ -12,18 +12,18 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifndef DISABLE_NUMA
-#include <numa.h>
-#include <sched.h>
-#endif
-
+#include <cstdint>
 #include <algorithm>
 #include <ctime>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <iomanip>
+#include <vector>
 
+#include "utility.h"
+#include "base_types.h"
+#include "malloc_utility.h"
 #include "tf_operators.h"
 #include "quant_operators.h"
 #include "log.h"
@@ -148,8 +148,8 @@ bool Tensor::copy(Tensor& t, const Tensor& s,
         columns = t._columns;
     }
 
-    int rows = std::min(s.total_rows(), t.total_rows());
-    columns = std::min(std::min(s._columns - source_start_column, t._columns - target_start_column), int(columns));
+    int rows = cpuft::min(s.total_rows(), t.total_rows());
+    columns = cpuft::min(s._columns - source_start_column, t._columns - target_start_column, int(columns));
     auto src = s._data + s.size_to_offset(source_start_column);
     auto tgt = t._data + t.size_to_offset(target_start_column);
     const int t_row_size = t.size_to_offset(t._columns);
@@ -373,14 +373,11 @@ size_t Tensor::manage(void* data, float* scales) noexcept {
 
 char* Tensor::alloc(MemoryType mt, size_t size) noexcept {
     if (mt == MemoryType::NUMA) {
-#ifdef DISABLE_NUMA
         mt = MemoryType::NORMAL;
-#else
-        return (char*)numa_alloc_onnode(size, numa_node_of_cpu(sched_getcpu()));
-#endif
+        return (char*)numa_malloc(size);
     }
     if (mt == MemoryType::NORMAL) {
-        return (char*)aligned_alloc(64, size);
+        return (char*)aligned_malloc(size, 64);
     } else if (mt == MemoryType::GPU) {
         fprintf(stderr, "GPU Memory is not supported yet.");
         return nullptr;
@@ -390,7 +387,7 @@ char* Tensor::alloc(MemoryType mt, size_t size) noexcept {
 
 void Tensor::free(MemoryType mt, char* ptr, size_t size) noexcept {
     if (mt == MemoryType::NORMAL || mt == MemoryType::NONE) {
-        ::free(ptr);
+        aligned_free(ptr);
     } else if (mt == MemoryType::NUMA) {
         numa_free(ptr, size);
     }
@@ -491,7 +488,7 @@ bool Tensor::quantize(std::span<const float> data, int layer, int row_offset) no
         return false;
     }
     size_t offset = size_t(_columns) * (_rows * layer + row_offset);
-    size_t length = std::min(data.size(), size_t(_rows - row_offset));
+    size_t length = cpuft::min(data.size(), size_t(_rows - row_offset));
     if (length < 1) {
         return false;
     }
@@ -727,8 +724,8 @@ void Tensor::add(const Tensor& b, int this_column_offset) noexcept {
     if (b._data == nullptr || this_column_offset >= _columns) [[unlikely]] {
         return;
     }
-    int cols = std::min(_columns - this_column_offset, int(b._columns));
-    int rows = std::min(total_rows(), b.total_rows());
+    int cols = cpuft::min(_columns - this_column_offset, int(b._columns));
+    int rows = cpuft::min(total_rows(), b.total_rows());
 
     if (_data == nullptr) [[unlikely]] {
         if (reserve_memory()) {

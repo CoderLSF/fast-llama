@@ -6,9 +6,11 @@
 
 #include <fstream>
 #include <algorithm>
+#include <memory>
 
 #include "log.h"
 #include "tf_operators.h"
+#include "quant_operators.h"
 #include "model_loader.h"
 
 // ----------------------------------------------------------------------------
@@ -75,19 +77,19 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
 
     if (is_debug) tf_log_debug("Loading model weights from:[%s] ...", ckpt_path.data());
 
-    weights.token_embedding_table.reset(conf.dim, conf.vocab_size);
-
+    auto qtype = QuantType::INT8;
+    weights.token_embedding_table.reset(conf.dim, conf.vocab_size, qtype);
     weights.attn_norm.reset(conf.dim, conf.n_layers);
-    weights.attn_q.reset(conf.dim, conf.dim,    conf.n_layers);
-    weights.attn_k.reset(conf.dim, conf.kv_dim, conf.n_layers);
-    weights.attn_v.reset(conf.dim, conf.kv_dim, conf.n_layers);
-    weights.attn_o.reset(conf.dim, conf.dim,    conf.n_layers);
-    weights.ffn_1.reset(conf.dim,        conf.hidden_dim, conf.n_layers);
-    weights.ffn_2.reset(conf.hidden_dim, conf.dim,        conf.n_layers);
-    weights.ffn_3.reset(conf.dim,        conf.hidden_dim, conf.n_layers);
+    weights.attn_q.reset(conf.dim, conf.dim,    conf.n_layers, qtype);
+    weights.attn_k.reset(conf.dim, conf.kv_dim, conf.n_layers, qtype);
+    weights.attn_v.reset(conf.dim, conf.kv_dim, conf.n_layers, qtype);
+    weights.attn_o.reset(conf.dim, conf.dim,    conf.n_layers, qtype);
+    weights.ffn_1.reset(conf.dim,        conf.hidden_dim, conf.n_layers, qtype);
+    weights.ffn_2.reset(conf.hidden_dim, conf.dim,        conf.n_layers, qtype);
+    weights.ffn_3.reset(conf.dim,        conf.hidden_dim, conf.n_layers, qtype);
     weights.ffn_norm.reset(conf.dim, conf.n_layers);
     weights.out_norm.reset(conf.dim);
-    weights.classifier.reset(conf.dim, conf.vocab_size);
+    weights.classifier.reset(conf.dim, conf.vocab_size, qtype);
     weights.rope_freq_cis.reset(conf.head_size, conf.max_seq_len);
 
     if (!weights.token_embedding_table.reserve_memory()
@@ -107,7 +109,18 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
         return false;
     }
 
-    if (!file.read(weights.token_embedding_table.data(), weights.token_embedding_table.memory_size())) {
+    size_t buf_size = std::max(weights.token_embedding_table.size() * sizeof(float), weights.ffn_2.size() * sizeof(float));
+    std::unique_ptr<char[]> buf(new char[buf_size]);
+    auto read_quant_tensor = [&file, &buf](Tensor& t) -> bool {
+        size_t data_size = t.size() * sizeof(float);
+        if (!file.read(buf.get(), data_size)) {
+            return false;
+        }
+        t.quantize({reinterpret_cast<float*>(buf.get()), data_size / sizeof(float)});
+        return true;
+    };
+
+    if (!read_quant_tensor(weights.token_embedding_table)) {
         tf_log_error("Failed to read token embeddings while loading:%s", ckpt_path.data());
         return false;
     }
@@ -115,19 +128,19 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
         tf_log_error("Failed to read weights of attn_norm while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.attn_q.data(), weights.attn_q.memory_size())) {
+    if (!read_quant_tensor(weights.attn_q)) {
         tf_log_error("Failed to read weights of Q while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.attn_k.data(), weights.attn_k.memory_size())) {
+    if (!read_quant_tensor(weights.attn_k)) {
         tf_log_error("Failed to read weights of K while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.attn_v.data(), weights.attn_v.memory_size())) {
+    if (!read_quant_tensor(weights.attn_v)) {
         tf_log_error("Failed to read weights of V while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.attn_o.data(), weights.attn_o.memory_size())) {
+    if (!read_quant_tensor(weights.attn_o)) {
         tf_log_error("Failed to read weights of O while loading:%s", ckpt_path.data());
         return false;
     }
@@ -135,16 +148,16 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
         tf_log_error("Failed to read weights of FFN RMSNorm while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.ffn_1.data(), weights.ffn_1.memory_size())) {
-        tf_log_error("Failed to read weights of FFN Gate while loading:%s", ckpt_path.data());
+    if (!read_quant_tensor(weights.ffn_1)) {
+        tf_log_error("Failed to read weights of FFN_1 while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.ffn_2.data(), weights.ffn_2.memory_size())) {
-        tf_log_error("Failed to read weights of FFN Down while loading:%s", ckpt_path.data());
+    if (!read_quant_tensor(weights.ffn_2)) {
+        tf_log_error("Failed to read weights of FFN_2 UP while loading:%s", ckpt_path.data());
         return false;
     }
-    if (!file.read(weights.ffn_3.data(), weights.ffn_3.memory_size())) {
-        tf_log_error("Failed to read weights of FFN Up while loading:%s", ckpt_path.data());
+    if (!read_quant_tensor(weights.ffn_3)) {
+        tf_log_error("Failed to read weights of FFN_3 UP while loading:%s", ckpt_path.data());
         return false;
     }
     if (!file.read(weights.out_norm.data(), weights.out_norm.memory_size())) {
@@ -172,11 +185,10 @@ bool TransformerModel::load_llama2c(std::string_view ckpt_path, std::string_view
     }
     if (shared_weights) {
         weights.classifier = weights.token_embedding_table.slice(0, conf.vocab_size);
-    } else if (!file.read(weights.classifier.data(), weights.classifier.memory_size())) {
+    } else if (!read_quant_tensor(weights.classifier)) {
         tf_log_error("Failed to read weights of final classifier while loading:%s", ckpt_path.data());
         return false;
     }
-
     if (is_debug) {
         print_summary();
     }

@@ -162,7 +162,7 @@ bool read_array(std::ifstream& file, std::vector<T>& arr) {
     if (size < 1) {
         return size >= 0;
     }
-    if (size > 1l << 40) {
+    if (size > (int64_t(1) << 40)) {
         return false;
     }
     if (arr.size() != size_t(size)) {
@@ -194,7 +194,7 @@ bool read_array(std::ifstream& file, std::vector<std::string>& arr) {
     if (size < 1) {
         return size >= 0;
     }
-    if (size > 1l << 40) {
+    if (size > (int64_t(1) << 40)) {
         return false;
     }
     if (arr.size() != size_t(size)) {
@@ -252,7 +252,7 @@ bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
                 return false;
             }
         } else if (key == "general.name" && vtype == GGUFValueType::STRING) {
-            conf.name = std::move(read_string(file));
+            conf.name = read_string(file);
         } else if (key == "general.file_type" && is_integer(vtype)) {
             GGUFFileType ft = GGUFFileType(read_integer(file, GGUFValueType(vtype)));
             switch (ft) {
@@ -413,12 +413,12 @@ bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
         }
     }
 
-    size_t file_pos = file.tellg();
+    size_t file_pos = size_t(file.tellg());
     file_pos = (file_pos + alignment - 1) & ~size_t(alignment - 1);
 
     for (auto pti : tis) {
         auto& ti = *pti;
-        uint64_t offset = file_pos + ti.offset;
+        size_t offset = file_pos + ti.offset;
         size_t num_items = 1;
         for (int i = 0; i < ti.n_dims; ++i) {
             num_items *= ti.shape[i];
@@ -457,7 +457,7 @@ bool TransformerModel::load_gguf(std::string_view file_path) noexcept {
         file.seekg(file_pos + ti.offset);
         if (!file.read(pdata, tensor_size)) {
             tf_log_error("Reading tensor data error, file_pos:%lu/%lu, size:%lu",
-                    file_pos + ti.offset, file_size, tensor_size);
+                    size_t(file_pos + ti.offset), file_size, tensor_size);
             return false;
         }
 

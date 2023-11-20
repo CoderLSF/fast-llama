@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include <sys/time.h>
 #include <stdint.h>
 
+#include <chrono>  
 #include <functional>
 #include <string_view>
 #include <span>
@@ -17,6 +17,19 @@
 #include <iomanip>
 
 namespace cpuft {
+
+inline auto min(auto a, auto b) {
+    return a <= b ? a : b;
+}
+inline auto min(auto a, auto b, auto c) {
+    return (a <= b && a <= c) ? a : (b <= c ? b : c);
+}
+inline auto max(auto a, auto b) {
+    return a >= b ? a : b;
+}
+inline auto max(auto a, auto b, auto c) {
+    return (a >= b && a >= c) ? a : (b >= c ? b : c);
+}
 
 template <typename... Args>
 std::string format(const char* fmt, Args... args) {
@@ -52,24 +65,25 @@ void print_summary(std::string_view prefix, const T& arr) {
 
 class Timer {
 public:
-    Timer() : _time_us(get_timestamp_us()) {}
+    Timer() : _start_time(get_timestamp_us()) {}
 
     void reset() noexcept {
-        _time_us = get_timestamp_us();
+        _start_time = get_timestamp_us();
     }
 
     int64_t elapsed_us() const noexcept {
-        return get_timestamp_us() - _time_us;
+        return get_timestamp_us() - _start_time;
     }
 
     static int64_t get_timestamp_us() noexcept {
-        struct timeval tv;
-        gettimeofday(&tv, nullptr);
-        return (int64_t)tv.tv_sec * 1000000 + (int64_t)tv.tv_usec;
+        auto now = std::chrono::high_resolution_clock::now();
+        auto now_microseconds = std::chrono::time_point_cast<std::chrono::microseconds>(now);
+        auto epoch = now_microseconds.time_since_epoch();
+        return std::chrono::duration_cast<std::chrono::microseconds>(epoch).count();
     }
 
 private:
-    int64_t _time_us;
+    int64_t _start_time = 0;
 };
 
 class Defer {
