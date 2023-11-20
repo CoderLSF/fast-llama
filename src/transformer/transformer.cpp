@@ -85,23 +85,21 @@ bool ParallelTransformer::generate(const std::vector<int>& input_tokens,
 
     int max_tokens = int(input_tokens.size()) + max_new_tokens;
 
-    for (int i = 0, token=input_tokens[0]; token != 0 && i < max_tokens; ++i) {
-        if (i == 0) {
-            auto logits = forward({input_tokens.data(), input_tokens.size()}, 0);
-            token = _sampler.sample(logits, temperature, topp);
-            i += input_tokens.size() - 1;
-        } else {
-            auto logits = forward({&token, 1}, i);
-            token = _sampler.sample(logits, temperature, topp);
-        }
-        if (!cb({&token, 1}, i, token == 0)) {
+    Tensor logits;
+    std::span<const int> cur_tokens = {input_tokens.data(), input_tokens.size()};
+    for (int i = 0, next_token=-1; next_token != 0 && i < max_tokens;) {
+        forward(cur_tokens, i, logits);
+        next_token = _sampler.sample(logits, temperature, topp);
+        if (!cb({&next_token, 1}, i, next_token == 0)) {
             break;
         }
+        i += cur_tokens.size();
+        cur_tokens = {&next_token, 1};
     }
     return true;
 }
 
-Tensor ParallelTransformer::forward(std::span<const int> tokens, int pos) {
+void ParallelTransformer::forward(std::span<const int> tokens, int pos, Tensor& logits) {
     const int bs = tokens.size();
 
     auto qtype = _tfc.quant_type;
@@ -154,9 +152,9 @@ Tensor ParallelTransformer::forward(std::span<const int> tokens, int pos) {
     x.rmsnorm(x, _tfw.rms_final_weight);
     q0.quantize(x);
 
-    auto logits = Tensor::manage(mem.get(), _tfc.vocab_size);
+    logits.reset(_tfc.vocab_size);
+    logits.manage(mem.get());
     execute(TaskType::CLS, pos, 0, &q0, &logits);
-    return logits;
 }
 
 int compare_float(const void* a, const void* b) {

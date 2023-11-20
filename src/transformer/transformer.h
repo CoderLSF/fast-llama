@@ -93,7 +93,7 @@ public:
     }
 
 private:
-    Tensor forward(std::span<const int> tokens, int pos);
+    void forward(std::span<const int> tokens, int pos, Tensor& logits);
 
     inline void execute(TaskType tt, short pos, short layer, Tensor* t1, Tensor* t2=nullptr, Tensor *t3=nullptr) noexcept {
         _task.tt    = tt;
