@@ -141,8 +141,7 @@ Why is it so fast?
 fast-llama is licensed under the [MIT](LICENSE).
 
 ## Acknowledgements
-
-We would like to express our gratitude to all contributors and users of FastLLaMA. Your support and feedback have been invaluable in making this project a success. If you encounter any issues or have any suggestions, please feel free to open an issue on the GitHub repository.
+Special thanks to `@AlpinDale`'s for his professional, meticulous, and patient guidance and assistance.
 
 ## Contact
 Email: [📩topcoderlsf@gmail.com](topcoderlsf@gmail.com)
